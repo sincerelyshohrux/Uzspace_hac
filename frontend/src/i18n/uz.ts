@@ -1,6 +1,6 @@
 export const uz = {
   app_name: "SiteSentinel",
-  app_sub: "Sun'iy yo'ldosh monitoringi",
+  app_sub: "Sun'iy yo'ldosh qurilish monitoringi",
   nav_dashboard: "Monitoring",
   nav_stats: "Statistika",
   nav_accuracy: "Model aniqligi",
@@ -152,6 +152,7 @@ export const uz = {
   // overview
   overview: "Umumiy holat",
   start_top: "Eng xavfli ogohlantirishdan boshlash",
+  priority_targets: "Birinchi navbatdagi obyektlar",
   top_districts: "Eng faol tumanlar",
   // stats
   k_total: "Jami ogohlantirishlar",

@@ -2,7 +2,7 @@ import type { Dict } from "./uz";
 
 export const en: Dict = {
   app_name: "SiteSentinel",
-  app_sub: "Satellite monitoring",
+  app_sub: "Satellite construction intelligence",
   nav_dashboard: "Monitoring",
   nav_stats: "Statistics",
   nav_accuracy: "Model accuracy",
@@ -149,6 +149,7 @@ export const en: Dict = {
   sentence_permit_no_data: "; permit not checked",
   overview: "Overview",
   start_top: "Start with the highest-risk alert",
+  priority_targets: "Priority targets",
   top_districts: "Most active districts",
   k_total: "Total alerts",
   k_area: "Affected area",

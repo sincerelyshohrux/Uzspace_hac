@@ -133,11 +133,23 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="px-4 pb-3.5">
-          <RiskGauge score={a.risk_score} confidence={a.confidence} />
+          <BeforeAfter a={a} before={before} after={after} demo={demo} />
+          <div className="mt-2.5 grid grid-cols-3 divide-x divide-line/10 rounded-xl border bg-bg2/50 py-2">
+            {[
+              [t("rf_confidence"), `${Math.round(a.confidence * 100)}%`, "text-accent"],
+              [t("started"), fmtMonth(a.start_month, lang, true), "text-fg1"],
+              [t("area"), `${fmtArea(a.area_m2)}`, "text-fg1"],
+            ].map(([l, v, c]) => (
+              <div key={l} className="px-2.5">
+                <div className="hud-label truncate">{l}</div>
+                <div className={cn("tnum mt-0.5 truncate text-[13px] font-semibold", c)}>{v}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="border-t border-line/10 px-4 py-3.5">
-          <BeforeAfter a={a} before={before} after={after} demo={demo} />
+          <RiskGauge score={a.risk_score} confidence={a.confidence} />
         </div>
 
         <Section title={t("why")}>

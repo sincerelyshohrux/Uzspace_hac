@@ -27,32 +27,34 @@
   --glass: 255 255 255;
   --glass-a: 0.82;
   --shadow-a: 0.12;
+  --glow-a: 0;
   color-scheme: light;
 }
 .dark {
-  --bg-0: 7 11 20;
-  --bg-1: 11 18 32;
-  --bg-2: 17 26 46;
-  --bg-3: 24 35 60;
-  --line: 148 163 184;
-  --line-a: 0.12;
-  --line-strong: 148 163 184;
-  --fg-1: 230 237 247;
-  --fg-2: 148 163 184;
-  --fg-3: 100 116 139;
+  --bg-0: 4 9 20;
+  --bg-1: 8 16 32;
+  --bg-2: 12 23 44;
+  --bg-3: 20 35 64;
+  --line: 125 211 252;
+  --line-a: 0.13;
+  --line-strong: 148 197 255;
+  --fg-1: 234 242 255;
+  --fg-2: 150 170 198;
+  --fg-3: 98 117 146;
   --accent: 34 211 238;
   --accent-2: 59 130 246;
-  --risk-high: 239 68 68;
-  --risk-mid: 245 158 11;
-  --risk-low: 234 179 8;
-  --ok: 34 197 94;
+  --risk-high: 248 82 82;
+  --risk-mid: 251 166 36;
+  --risk-low: 234 199 30;
+  --ok: 52 211 153;
   --st-new: 148 163 184;
-  --st-review: 59 130 246;
-  --st-confirmed: 168 85 247;
+  --st-review: 96 165 250;
+  --st-confirmed: 192 132 252;
   --st-fp: 100 116 139;
-  --glass: 17 26 46;
-  --glass-a: 0.74;
-  --shadow-a: 0.4;
+  --glass: 9 18 36;
+  --glass-a: 0.78;
+  --shadow-a: 0.5;
+  --glow-a: 0.1;
   color-scheme: dark;
 }
 
@@ -61,6 +63,11 @@
   body {
     @apply bg-bg0 font-sans text-[13px] text-fg1 antialiased;
     font-feature-settings: "cv11", "ss01";
+  }
+  .dark body {
+    background-image:
+      radial-gradient(1100px 520px at 0% -10%, rgb(var(--accent) / 0.07), transparent 60%),
+      radial-gradient(900px 480px at 100% 0%, rgb(var(--accent-2) / 0.08), transparent 60%);
   }
   * { border-color: rgb(var(--line) / var(--line-a)); }
   ::selection { background: rgb(var(--accent) / 0.3); }
@@ -73,13 +80,29 @@
 
 @layer components {
   .glass {
-    background: rgb(var(--glass) / var(--glass-a));
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    @apply border shadow-panel;
+    background: linear-gradient(180deg, rgb(var(--glass) / calc(var(--glass-a) + 0.06)), rgb(var(--glass) / var(--glass-a)));
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgb(var(--accent) / calc(var(--glow-a) * 1.6 + 0.04));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / calc(var(--glow-a) * 0.5)),
+      0 12px 40px rgb(0 0 0 / var(--shadow-a)),
+      0 0 32px rgb(var(--accent) / calc(var(--glow-a) * 0.6));
   }
-  .card { @apply rounded-xl border bg-bg1 shadow-panel; }
-  .section-title { @apply text-2xs font-semibold uppercase tracking-[0.06em] text-fg2; }
+  .card {
+    @apply rounded-2xl border bg-bg1;
+    background-image: linear-gradient(180deg, rgb(var(--accent) / calc(var(--glow-a) * 0.35)), transparent 40%);
+    border-color: rgb(var(--accent) / calc(var(--glow-a) * 1.3 + 0.05));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--glow-a) * 0.4)), 0 8px 32px rgb(0 0 0 / var(--shadow-a));
+  }
+  .section-title { @apply flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-fg2; }
+  .section-title::before {
+    content: "";
+    @apply h-2.5 w-[3px] shrink-0 rounded-full bg-accent;
+    box-shadow: 0 0 8px rgb(var(--accent) / 0.8);
+  }
+  .hud-label { @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-fg3; }
+  .text-glow { text-shadow: 0 0 18px rgb(var(--accent) / calc(var(--glow-a) * 5)); }
   .field {
     @apply h-9 rounded-lg border bg-bg2 px-3 text-[13px] text-fg1 outline-none transition placeholder:text-fg3 focus:border-accent/60 focus:ring-2 focus:ring-accent/20;
   }

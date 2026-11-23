@@ -5,15 +5,13 @@ import { useAppState } from "./state";
 import { useBreakpoint } from "./useMedia";
 import { ApiBanner } from "@/components/layout/ApiBanner";
 import { SettingsDialog, ShortcutsDialog } from "@/components/layout/Dialogs";
-import { IconRail, MobileTabBar } from "@/components/layout/IconRail";
+import { MobileTabBar } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
-import { useI18n } from "@/i18n";
 import { AccuracyPage } from "@/pages/AccuracyPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { StatsPage } from "@/pages/StatsPage";
 
 export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnline: boolean }) {
-  const { t } = useI18n();
   const { s, set, setFilters } = useAppState();
   const bp = useBreakpoint();
   const [settings, setSettings] = useState(false);
@@ -44,7 +42,6 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
     return () => window.removeEventListener("keydown", onKey);
   }, [s.tab, set]);
 
-  const titles = { dashboard: t("nav_dashboard"), stats: t("nav_stats"), accuracy: t("nav_accuracy") };
   const goDistrict = (d: string) => {
     setFilters({ district: d });
     set({ tab: "dashboard", alert: null });
@@ -52,15 +49,17 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-bg0">
-      <IconRail tab={s.tab} onTab={(tab) => set({ tab })} onSettings={() => setSettings(true)} onHelp={() => setHelp(true)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
-          title={titles[s.tab]}
+          tab={s.tab}
+          onTab={(tab) => set({ tab })}
+          onSettings={() => setSettings(true)}
+          onHelp={() => setHelp(true)}
           mode={mode}
           apiOnline={apiOnline}
           onAlert={(id) => set({ tab: "dashboard", alert: id })}
           onDistrict={goDistrict}
-          searchRef={bp.lg ? searchRef : { current: null }}
+          searchRef={bp.xl ? searchRef : { current: null }}
         />
         {mode === "api" && !apiOnline && <ApiBanner onRetry={async () => setApiOnline(await apiReachable())} />}
         <main className="flex min-h-0 flex-1 flex-col">

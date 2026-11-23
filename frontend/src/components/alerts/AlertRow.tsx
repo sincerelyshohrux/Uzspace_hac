@@ -39,7 +39,7 @@ export const AlertRow = forwardRef<HTMLLIElement, Props>(function AlertRow({ a, 
       onMouseLeave={() => onHover(false)}
       className={cn(
         "group relative flex cursor-pointer gap-3 overflow-hidden rounded-xl border px-3 py-2.5 transition-[background,border,box-shadow,transform] duration-150",
-        selected ? "border-accent/60 bg-accent/[.07] shadow-glow" : hovered ? "-translate-y-px border-line-strong/25 bg-bg3/60" : "border-transparent hover:-translate-y-px hover:border-line-strong/20 hover:bg-bg3/50",
+        selected ? "border-accent/60 bg-accent/[.09] shadow-glow" : hovered ? "-translate-y-px border-line-strong/25 bg-bg3/60" : "border-transparent hover:-translate-y-px hover:border-line-strong/20 hover:bg-bg3/50",
       )}
     >
       <span className={cn("absolute inset-y-2 left-0 w-[3px] rounded-r", BAR[riskLevel(a.risk_score)])} />
@@ -61,7 +61,10 @@ export const AlertRow = forwardRef<HTMLLIElement, Props>(function AlertRow({ a, 
           {a.zones.slice(0, 2).map((z) => <ZoneChip key={z} zone={z} compact />)}
           {a.zones.length > 2 && <span className="text-2xs text-fg3">+{a.zones.length - 2}</span>}
           {!a.zones.length && <span className="text-2xs text-fg3">{t("no_zone")}</span>}
-          <span className={cn("ml-auto", PERMIT_CLS[a.permit_match])} title={t(`pm_${a.permit_match}`)}>
+          <span className="ml-auto h-1 w-14 overflow-hidden rounded-full bg-bg3" aria-hidden>
+            <span className={cn("block h-full rounded-full", BAR[riskLevel(a.risk_score)])} style={{ width: `${a.risk_score}%` }} />
+          </span>
+          <span className={cn(PERMIT_CLS[a.permit_match])} title={t(`pm_${a.permit_match}`)}>
             <P size={14} aria-label={t(`pm_${a.permit_match}`)} />
           </span>
         </div>

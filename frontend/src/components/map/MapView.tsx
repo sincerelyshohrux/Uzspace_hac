@@ -58,6 +58,24 @@ function columns(alerts: Alert[]): GeoJSON.FeatureCollection {
   };
 }
 
+/** Square target frame around each alert, sized by footprint. */
+function frames(alerts: Alert[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: alerts.map((a) => {
+      const half = Math.max(40, Math.sqrt(a.area_m2) * 0.9);
+      const dx = half / mLon(a.lat);
+      const dy = half / 111_320;
+      return {
+        type: "Feature",
+        id: a.alert_id,
+        properties: { alert_id: a.alert_id, risk_score: a.risk_score, label: `${a.alert_id.slice(-4)} · ${Math.round(a.risk_score)}` },
+        geometry: { type: "Polygon", coordinates: [[[a.lon - dx, a.lat - dy], [a.lon + dx, a.lat - dy], [a.lon + dx, a.lat + dy], [a.lon - dx, a.lat + dy], [a.lon - dx, a.lat - dy]]] },
+      };
+    }),
+  };
+}
+
 function centroid(poly: GeoJSON.Polygon): [number, number] {
   const r = poly.coordinates[0];
   const n = r.length - 1;
@@ -145,6 +163,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       m.addSource("zones", { type: "geojson", data: EMPTY });
       m.addSource("alerts", { type: "geojson", data: EMPTY, promoteId: "alert_id" });
       m.addSource("columns", { type: "geojson", data: EMPTY, promoteId: "alert_id" });
+      m.addSource("frames", { type: "geojson", data: EMPTY, promoteId: "alert_id" });
       m.addSource("pts-raw", { type: "geojson", data: EMPTY });
       m.addSource("pts", {
         type: "geojson",
@@ -208,13 +227,26 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         },
       });
 
+      const frameColor: maplibregl.ExpressionSpecification = ["case", ["boolean", ["feature-state", "selected"], false], "#22D3EE", riskColorExpr()];
+      m.addLayer({ id: "frames-glow", type: "line", source: "frames", minzoom: 12.5, paint: { "line-color": frameColor, "line-width": ["interpolate", ["linear"], ["zoom"], 13, 5, 17, 10], "line-blur": 6, "line-opacity": 0.55 } });
+      m.addLayer({ id: "frames", type: "line", source: "frames", minzoom: 12.5, paint: { "line-color": frameColor, "line-width": ["case", ["boolean", ["feature-state", "selected"], false], 2.4, 1.4], "line-opacity": 0.95 } });
+      m.addLayer({
+        id: "frame-labels", type: "symbol", source: "frames", minzoom: 13.5,
+        layout: { "text-field": ["get", "label"], "text-font": FONT, "text-size": 11, "text-anchor": "bottom-left", "text-offset": [0, -0.3], "symbol-placement": "point", "text-allow-overlap": false, "text-variable-anchor": ["bottom-left", "top-left"] } as maplibregl.SymbolLayerSpecification["layout"],
+        paint: { "text-color": riskColorExpr(), "text-halo-color": "rgba(4,9,20,.92)", "text-halo-width": 1.6 },
+      });
+
       m.addLayer({ id: "pulse", type: "circle", source: "pts-raw", minzoom: 11, maxzoom: 13.5, filter: [">=", ["get", "risk_score"], 60], paint: { "circle-radius": 10, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": RISK_HEX.high, "circle-stroke-width": 2, "circle-stroke-opacity": 0.6 } });
 
+      m.addLayer({
+        id: "clusters-glow", type: "circle", source: "pts", filter: ["has", "point_count"],
+        paint: { "circle-color": riskColorExpr("maxRisk"), "circle-opacity": 0.28, "circle-blur": 1, "circle-radius": ["interpolate", ["linear"], ["get", "point_count"], 2, 30, 10, 40, 30, 54] },
+      });
       m.addLayer({
         id: "clusters", type: "circle", source: "pts", filter: ["has", "point_count"],
         paint: {
           "circle-color": riskColorExpr("maxRisk"),
-          "circle-opacity": 0.22,
+          "circle-opacity": 0.3,
           "circle-stroke-color": riskColorExpr("maxRisk"),
           "circle-stroke-width": 1.6,
           "circle-radius": ["interpolate", ["linear"], ["get", "point_count"], 2, 15, 10, 21, 30, 30],
@@ -223,6 +255,10 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       });
       m.addLayer({ id: "cluster-count", type: "symbol", source: "pts", filter: ["has", "point_count"], layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": FONT, "text-size": 12, "text-allow-overlap": true }, paint: { "text-color": "#F8FAFC" } });
 
+      m.addLayer({
+        id: "points-glow", type: "circle", source: "pts", maxzoom: 13.5, filter: ["!", ["has", "point_count"]],
+        paint: { "circle-color": riskColorExpr(), "circle-opacity": 0.45, "circle-blur": 1, "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 11, 13, 22] },
+      });
       m.addLayer({
         id: "points", type: "circle", source: "pts", maxzoom: 13.5, filter: ["!", ["has", "point_count"]],
         paint: {
@@ -290,6 +326,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     if (!ready || !m) return;
     (m.getSource("alerts") as GeoJSONSource).setData(alertFC);
     (m.getSource("columns") as GeoJSONSource).setData(columns(p.alerts));
+    (m.getSource("frames") as GeoJSONSource).setData(frames(p.alerts));
     (m.getSource("pts") as GeoJSONSource).setData(pointFC);
     (m.getSource("pts-raw") as GeoJSONSource).setData(pointFC);
   }, [ready, alertFC, pointFC, p.alerts]);
@@ -327,8 +364,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     const vis = (id: string, on: boolean) => m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     const alertsOn = L.alerts;
     vis("columns", alertsOn && p.view3d);
-    ["alerts-fill", "alerts-line"].forEach((id) => vis(id, alertsOn && !p.view3d));
-    ["clusters", "cluster-count", "points", "pulse", "selected-ring"].forEach((id) => vis(id, alertsOn && !p.view3d));
+    ["alerts-fill", "alerts-line", "frames-glow", "frames", "frame-labels"].forEach((id) => vis(id, alertsOn && !p.view3d));
+    ["clusters-glow", "clusters", "cluster-count", "points-glow", "points", "pulse", "selected-ring"].forEach((id) => vis(id, alertsOn && !p.view3d));
     vis("heat", L.heat);
     ["districts-line", "districts-label", "districts-fill"].forEach((id) => vis(id, L.districts));
     const types = Object.entries(L.zoneTypes).filter(([, on]) => on).map(([z]) => z);
@@ -359,6 +396,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       if (!id) return;
       m.setFeatureState({ source: "alerts", id }, { selected: v });
       m.setFeatureState({ source: "columns", id }, { selected: v });
+      m.setFeatureState({ source: "frames", id }, { selected: v });
     };
     setSel(prevSel.current, false);
     setSel(p.selected, true);

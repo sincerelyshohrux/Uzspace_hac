@@ -93,7 +93,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     top: 70,
     left: docked ? QW + GAP * 2 : 20,
     right: detailDocked ? DW + GAP * 2 : 60,
-    bottom: bp.md ? 110 : 90,
+    bottom: bp.lg ? 170 : bp.md ? 110 : 90,
   };
 
   const queue = (
@@ -115,7 +115,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
       hovered={hovered}
       onSelect={onSelect}
       onHover={setHovered}
-      searchRef={bp.lg ? undefined : searchRef}
+      searchRef={bp.xl ? undefined : searchRef}
       className="h-full"
     />
   );
@@ -207,7 +207,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
               className="glass absolute bottom-3 right-3 top-3 z-20 overflow-hidden rounded-2xl"
               style={{ width: DW }}
             >
-              {detail ?? <OverviewCard top={items[0]} onStart={() => items[0] && select(items[0].alert_id)} onDistrict={(d) => setFilters({ district: d })} />}
+              {detail ?? <OverviewCard items={[...capped].sort((x, y) => y.risk_score - x.risk_score)} onSelect={onSelect} onDistrict={(d) => setFilters({ district: d })} />}
             </motion.aside>
           )}
         </AnimatePresence>
@@ -218,10 +218,10 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
       )}
 
       <div className="absolute top-3 z-10 transition-[right] duration-300" style={{ right: rightOffset }}>{controls}</div>
-      <Legend className="absolute z-10 hidden transition-[left] duration-300 lg:block" style={{ left: leftOffset, bottom: 104 }} />
+      <Legend className="absolute z-10 hidden transition-[left] duration-300 lg:block" style={{ left: leftOffset, bottom: bp.lg ? 168 : 104 }} />
       <div className="absolute z-10 transition-[left,right] duration-300" style={{ left: leftOffset, right: rightOffset, bottom: GAP }}>
         <div className="mx-auto max-w-[760px]">
-          <TimelineBar alerts={q.data?.items ?? []} month={s.month} onMonth={(m) => set({ month: m })} />
+          <TimelineBar alerts={q.data?.items ?? []} month={s.month} onMonth={(m) => set({ month: m })} strip={bp.lg} />
         </div>
       </div>
     </div>
