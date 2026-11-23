@@ -1,0 +1,424 @@
+import maplibregl, { type GeoJSONSource, type Map as MLMap, type MapGeoJSONFeature } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import type { Alert, DistrictLayer, ZoneLayer } from "@/api/types";
+import type { Basemap, LayerPrefs } from "@/app/state";
+import { mLon } from "@/lib/geo";
+import { RISK_HEX, ZONE_HEX } from "@/lib/format";
+import { baseStyle, FONT, START_ZOOM, TASHKENT } from "./mapStyle";
+
+export interface MapHandle {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  recenter: () => void;
+  fitAlerts: () => void;
+}
+
+interface Props {
+  alerts: Alert[];
+  zones?: ZoneLayer;
+  districts?: DistrictLayer;
+  selected: string | null;
+  hovered: string | null;
+  onSelect: (id: string | null) => void;
+  onHover: (id: string | null) => void;
+  basemap: Basemap;
+  view3d: boolean;
+  layers: LayerPrefs;
+  padding: { left: number; right: number; bottom: number; top: number };
+  reducedMotion: boolean;
+  activeDistrict?: string;
+}
+
+const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const riskColorExpr = (prop = "risk_score"): maplibregl.ExpressionSpecification => [
+  "step", ["get", prop], RISK_HEX.low, 30, RISK_HEX.mid, 60, RISK_HEX.high,
+];
+const zoneColorExpr: maplibregl.ExpressionSpecification = [
+  "match", ["get", "zone"],
+  ...Object.entries(ZONE_HEX).flat(),
+  "#94A3B8",
+] as unknown as maplibregl.ExpressionSpecification;
+
+/** Square "risk column" footprints for 3D mode (visible at city scale). */
+function columns(alerts: Alert[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: alerts.map((a) => {
+      const half = 90;
+      const dx = half / mLon(a.lat);
+      const dy = half / 111_320;
+      return {
+        type: "Feature",
+        id: a.alert_id,
+        properties: { alert_id: a.alert_id, risk_score: a.risk_score, h: 40 + a.risk_score * 9 },
+        geometry: { type: "Polygon", coordinates: [[[a.lon - dx, a.lat - dy], [a.lon + dx, a.lat - dy], [a.lon + dx, a.lat + dy], [a.lon - dx, a.lat + dy], [a.lon - dx, a.lat - dy]]] },
+      };
+    }),
+  };
+}
+
+function centroid(poly: GeoJSON.Polygon): [number, number] {
+  const r = poly.coordinates[0];
+  const n = r.length - 1;
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < n; i++) {
+    x += r[i][0];
+    y += r[i][1];
+  }
+  return [x / n, y / n];
+}
+
+export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
+  const el = useRef<HTMLDivElement>(null);
+  const coordEl = useRef<HTMLDivElement>(null);
+  const map = useRef<MLMap | null>(null);
+  const [ready, setReady] = useState(false);
+  const cb = useRef(p);
+  cb.current = p;
+  const prevSel = useRef<string | null>(null);
+  const prevHover = useRef<string | null>(null);
+
+  const alertFC = useMemo<GeoJSON.FeatureCollection>(
+    () => ({
+      type: "FeatureCollection",
+      features: p.alerts.map((a) => ({
+        type: "Feature",
+        id: a.alert_id,
+        properties: { alert_id: a.alert_id, risk_score: a.risk_score, area_m2: a.area_m2, status: a.status, district: a.district },
+        geometry: a.geometry,
+      })),
+    }),
+    [p.alerts],
+  );
+  const pointFC = useMemo<GeoJSON.FeatureCollection>(
+    () => ({
+      type: "FeatureCollection",
+      features: p.alerts.map((a) => ({
+        type: "Feature",
+        properties: { alert_id: a.alert_id, risk_score: a.risk_score, area_m2: a.area_m2 },
+        geometry: { type: "Point", coordinates: [a.lon, a.lat] },
+      })),
+    }),
+    [p.alerts],
+  );
+  const districtLabels = useMemo<GeoJSON.FeatureCollection>(
+    () => ({
+      type: "FeatureCollection",
+      features: (p.districts?.features ?? []).map((f) => ({ type: "Feature", properties: { name: f.properties.name }, geometry: { type: "Point", coordinates: centroid(f.geometry) } })),
+    }),
+    [p.districts],
+  );
+
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => map.current?.zoomIn(),
+    zoomOut: () => map.current?.zoomOut(),
+    recenter: () => map.current?.flyTo({ center: TASHKENT, zoom: START_ZOOM, pitch: cb.current.view3d ? 55 : 0, bearing: cb.current.view3d ? -15 : 0, padding: cb.current.padding }),
+    fitAlerts: () => {
+      const m = map.current;
+      const a = cb.current.alerts;
+      if (!m || !a.length) return;
+      const b = new maplibregl.LngLatBounds();
+      a.forEach((x) => b.extend([x.lon, x.lat]));
+      m.fitBounds(b, { padding: { ...cb.current.padding, top: cb.current.padding.top + 40, bottom: cb.current.padding.bottom + 40, left: cb.current.padding.left + 40, right: cb.current.padding.right + 40 }, maxZoom: 14, duration: 900 });
+    },
+  }));
+
+  // ---------- create map once ----------
+  useEffect(() => {
+    if (!el.current) return;
+    const m = new maplibregl.Map({
+      container: el.current,
+      style: baseStyle(),
+      center: TASHKENT,
+      zoom: START_ZOOM,
+      attributionControl: { compact: true },
+      maxPitch: 70,
+      dragRotate: true,
+    });
+    map.current = m;
+    m.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 90 }), "bottom-left");
+
+    m.on("load", () => {
+      m.addSource("districts", { type: "geojson", data: EMPTY });
+      m.addSource("district-labels", { type: "geojson", data: EMPTY });
+      m.addSource("zones", { type: "geojson", data: EMPTY });
+      m.addSource("alerts", { type: "geojson", data: EMPTY, promoteId: "alert_id" });
+      m.addSource("columns", { type: "geojson", data: EMPTY, promoteId: "alert_id" });
+      m.addSource("pts-raw", { type: "geojson", data: EMPTY });
+      m.addSource("pts", {
+        type: "geojson",
+        data: EMPTY,
+        cluster: true,
+        clusterMaxZoom: 11,
+        clusterRadius: 44,
+        clusterProperties: { maxRisk: ["max", ["get", "risk_score"]] },
+      });
+
+      // districts
+      m.addLayer({ id: "districts-fill", type: "fill", source: "districts", paint: { "fill-color": "#22D3EE", "fill-opacity": ["case", ["==", ["get", "name"], ""], 0.06, 0] } });
+      m.addLayer({ id: "districts-line", type: "line", source: "districts", paint: { "line-color": "#E2E8F0", "line-opacity": 0.45, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.6, 14, 1.6], "line-dasharray": [3, 2] } });
+      m.addLayer({
+        id: "districts-label", type: "symbol", source: "district-labels", maxzoom: 13.5,
+        layout: { "text-field": ["upcase", ["get", "name"]], "text-font": FONT, "text-size": 11, "text-letter-spacing": 0.12, "text-allow-overlap": false },
+        paint: { "text-color": "#E2E8F0", "text-halo-color": "rgba(7,11,20,.85)", "text-halo-width": 1.4, "text-opacity": 0.85 },
+      });
+
+      // restricted zones
+      m.addLayer({ id: "zones-fill", type: "fill", source: "zones", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": zoneColorExpr, "fill-opacity": 0.18 } });
+      m.addLayer({ id: "zones-outline", type: "line", source: "zones", filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": zoneColorExpr, "line-width": 1.4, "line-opacity": 0.9 } });
+      // protection corridor: width follows metres (buffer_m) at every zoom, lat ≈ 41.3
+      const px = (z: number) => ["*", ["get", "buffer_m"], 2 / ((156543.03392 * Math.cos((41.3 * Math.PI) / 180)) / 2 ** z)];
+      m.addLayer({
+        id: "zones-buffer", type: "line", source: "zones", filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": zoneColorExpr, "line-opacity": 0.2, "line-width": ["interpolate", ["exponential", 2], ["zoom"], 9, px(9), 19, px(19)] as unknown as maplibregl.ExpressionSpecification },
+      });
+      m.addLayer({ id: "zones-line", type: "line", source: "zones", filter: ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["canal", "river"]]]], layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": zoneColorExpr, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.5, 16, 4] } });
+      m.addLayer({ id: "zones-line-dashed", type: "line", source: "zones", filter: ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["power_line", "railway"]]]], paint: { "line-color": zoneColorExpr, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.2, 16, 2.5], "line-dasharray": [2, 1.5] } });
+
+      // density heatmap
+      m.addLayer({
+        id: "heat", type: "heatmap", source: "pts-raw", layout: { visibility: "none" },
+        paint: {
+          "heatmap-weight": ["/", ["get", "risk_score"], 100],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 9, 18, 14, 40],
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 9, 1, 14, 2.5],
+          "heatmap-opacity": 0.75,
+          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.2, "#0E7490", 0.45, "#22D3EE", 0.65, "#EAB308", 0.85, "#F59E0B", 1, "#EF4444"],
+        },
+      });
+
+      // alert polygons (close zoom)
+      m.addLayer({
+        id: "alerts-fill", type: "fill", source: "alerts", minzoom: 12.5,
+        paint: { "fill-color": riskColorExpr(), "fill-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 0.55, ["boolean", ["feature-state", "hover"], false], 0.5, 0.35] },
+      });
+      m.addLayer({
+        id: "alerts-line", type: "line", source: "alerts", minzoom: 12.5,
+        paint: {
+          "line-color": ["case", ["boolean", ["feature-state", "selected"], false], "#22D3EE", riskColorExpr()],
+          "line-width": ["case", ["boolean", ["feature-state", "selected"], false], 3, ["boolean", ["feature-state", "hover"], false], 2.5, 1.6],
+        },
+      });
+
+      // 3D risk columns
+      m.addLayer({
+        id: "columns", type: "fill-extrusion", source: "columns", layout: { visibility: "none" },
+        paint: {
+          "fill-extrusion-color": ["case", ["boolean", ["feature-state", "selected"], false], "#22D3EE", riskColorExpr()],
+          "fill-extrusion-height": ["get", "h"],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 0.88,
+        },
+      });
+
+      // pulse ring for high risk
+      m.addLayer({ id: "pulse", type: "circle", source: "pts-raw", minzoom: 11, maxzoom: 13.5, filter: [">=", ["get", "risk_score"], 60], paint: { "circle-radius": 10, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": RISK_HEX.high, "circle-stroke-width": 2, "circle-stroke-opacity": 0.6 } });
+
+      // clusters
+      m.addLayer({
+        id: "clusters", type: "circle", source: "pts", filter: ["has", "point_count"],
+        paint: {
+          "circle-color": riskColorExpr("maxRisk"),
+          "circle-opacity": 0.22,
+          "circle-stroke-color": riskColorExpr("maxRisk"),
+          "circle-stroke-width": 1.6,
+          "circle-radius": ["interpolate", ["linear"], ["get", "point_count"], 2, 15, 10, 21, 30, 30],
+          "circle-blur": 0.05,
+        },
+      });
+      m.addLayer({ id: "cluster-count", type: "symbol", source: "pts", filter: ["has", "point_count"], layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": FONT, "text-size": 12, "text-allow-overlap": true }, paint: { "text-color": "#F8FAFC" } });
+
+      // single points (mid zoom)
+      m.addLayer({
+        id: "points", type: "circle", source: "pts", maxzoom: 13.5, filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": riskColorExpr(),
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, ["interpolate", ["linear"], ["get", "area_m2"], 800, 4, 15000, 7], 13, ["interpolate", ["linear"], ["get", "area_m2"], 800, 7, 15000, 12]],
+          "circle-stroke-color": "#0B1220",
+          "circle-stroke-width": 1.5,
+        },
+      });
+      m.addLayer({ id: "selected-ring", type: "circle", source: "pts-raw", maxzoom: 13.5, filter: ["==", ["get", "alert_id"], ""], paint: { "circle-radius": 16, "circle-color": "rgba(34,211,238,.12)", "circle-stroke-color": "#22D3EE", "circle-stroke-width": 2.5 } });
+
+      // ---------- interactions ----------
+      const pickable = ["alerts-fill", "points", "columns"];
+      const idOf = (f?: MapGeoJSONFeature) => (f?.properties?.alert_id as string | undefined) ?? null;
+      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: "qn-pop" });
+
+      m.on("click", (e) => {
+        const hit = m.queryRenderedFeatures(e.point, { layers: [...pickable, "clusters"].filter((l) => m.getLayoutProperty(l, "visibility") !== "none") });
+        const c = hit.find((f) => f.layer.id === "clusters");
+        if (c && !hit.some((f) => pickable.includes(f.layer.id))) {
+          (m.getSource("pts") as GeoJSONSource).getClusterExpansionZoom(c.properties.cluster_id as number).then((z) => {
+            m.easeTo({ center: (c.geometry as GeoJSON.Point).coordinates as [number, number], zoom: z + 0.3 });
+          });
+          return;
+        }
+        const id = idOf(hit.find((f) => pickable.includes(f.layer.id)));
+        cb.current.onSelect(id);
+      });
+      m.on("mousemove", (e) => {
+        if (coordEl.current) coordEl.current.textContent = `${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`;
+        const layersOn = [...pickable, "clusters"].filter((l) => m.getLayoutProperty(l, "visibility") !== "none");
+        const hit = m.queryRenderedFeatures(e.point, { layers: layersOn });
+        m.getCanvas().style.cursor = hit.length ? "pointer" : "";
+        const f = hit.find((x) => pickable.includes(x.layer.id));
+        const id = idOf(f);
+        if (id !== prevHover.current) cb.current.onHover(id);
+        if (f && id) {
+          const a = cb.current.alerts.find((x) => x.alert_id === id);
+          if (a) {
+            popup
+              .setLngLat([a.lon, a.lat])
+              .setHTML(`<div style="font:600 12px Inter;display:flex;gap:8px;align-items:center"><span style="font-family:'JetBrains Mono',monospace">${a.alert_id}</span><span style="color:${RISK_HEX[a.risk_score >= 60 ? "high" : a.risk_score >= 30 ? "mid" : "low"]}">${Math.round(a.risk_score)}</span></div><div style="font:400 11px Inter;opacity:.7">${a.district} · ≈${Math.round(a.area_m2)} m²</div>`)
+              .addTo(m);
+          }
+        } else popup.remove();
+      });
+      m.getCanvas().addEventListener("mouseleave", () => {
+        popup.remove();
+        cb.current.onHover(null);
+      });
+
+      setReady(true);
+    });
+
+    const ro = new ResizeObserver(() => m.resize());
+    ro.observe(el.current);
+    return () => {
+      ro.disconnect();
+      m.remove();
+      map.current = null;
+    };
+  }, []);
+
+  // ---------- data ----------
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    (m.getSource("alerts") as GeoJSONSource).setData(alertFC);
+    (m.getSource("columns") as GeoJSONSource).setData(columns(p.alerts));
+    (m.getSource("pts") as GeoJSONSource).setData(pointFC);
+    (m.getSource("pts-raw") as GeoJSONSource).setData(pointFC);
+  }, [ready, alertFC, pointFC, p.alerts]);
+  useEffect(() => {
+    if (ready && p.zones) (map.current!.getSource("zones") as GeoJSONSource).setData(p.zones);
+  }, [ready, p.zones]);
+  useEffect(() => {
+    if (!ready || !p.districts) return;
+    (map.current!.getSource("districts") as GeoJSONSource).setData(p.districts);
+    (map.current!.getSource("district-labels") as GeoJSONSource).setData(districtLabels);
+  }, [ready, p.districts, districtLabels]);
+  useEffect(() => {
+    if (!ready) return;
+    map.current!.setPaintProperty("districts-fill", "fill-opacity", ["case", ["==", ["get", "name"], p.activeDistrict ?? ""], 0.08, 0]);
+  }, [ready, p.activeDistrict]);
+
+  // ---------- basemap ----------
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    const vis = (id: string, on: boolean) => m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    vis("base-sat", p.basemap === "satellite");
+    vis("base-sat-labels", p.basemap === "satellite");
+    vis("base-streets", p.basemap === "streets");
+    vis("base-dark", p.basemap === "dark");
+    const light = p.basemap === "streets";
+    m.setPaintProperty("districts-line", "line-color", light ? "#334155" : "#E2E8F0");
+    m.setPaintProperty("districts-label", "text-color", light ? "#0F172A" : "#E2E8F0");
+    m.setPaintProperty("districts-label", "text-halo-color", light ? "rgba(255,255,255,.9)" : "rgba(7,11,20,.85)");
+  }, [ready, p.basemap]);
+
+  // ---------- layer prefs + 3D ----------
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    const L = p.layers;
+    const vis = (id: string, on: boolean) => m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    const alertsOn = L.alerts;
+    vis("columns", alertsOn && p.view3d);
+    ["alerts-fill", "alerts-line"].forEach((id) => vis(id, alertsOn && !p.view3d));
+    ["clusters", "cluster-count", "points", "pulse", "selected-ring"].forEach((id) => vis(id, alertsOn && !p.view3d));
+    vis("heat", L.heat);
+    ["districts-line", "districts-label", "districts-fill"].forEach((id) => vis(id, L.districts));
+    const types = Object.entries(L.zoneTypes).filter(([, on]) => on).map(([z]) => z);
+    const tf: maplibregl.ExpressionSpecification = ["in", ["get", "zone"], ["literal", types]];
+    ["zones-fill", "zones-outline", "zones-line", "zones-line-dashed"].forEach((id) => vis(id, L.zones));
+    vis("zones-buffer", L.zones && L.buffers);
+    m.setFilter("zones-fill", ["all", ["==", ["geometry-type"], "Polygon"], tf]);
+    m.setFilter("zones-outline", ["all", ["==", ["geometry-type"], "Polygon"], tf]);
+    m.setFilter("zones-buffer", ["all", ["==", ["geometry-type"], "LineString"], tf]);
+    m.setFilter("zones-line", ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["canal", "river"]]], tf]);
+    m.setFilter("zones-line-dashed", ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["power_line", "railway"]]], tf]);
+    m.setPaintProperty("zones-fill", "fill-opacity", L.zoneOpacity);
+    m.setPaintProperty("alerts-fill", "fill-opacity", ["case", ["boolean", ["feature-state", "selected"], false], Math.min(1, L.alertOpacity + 0.25), ["boolean", ["feature-state", "hover"], false], Math.min(1, L.alertOpacity + 0.15), L.alertOpacity]);
+  }, [ready, p.layers, p.view3d]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    const opts = p.view3d ? { pitch: 58, bearing: -18 } : { pitch: 0, bearing: 0 };
+    if (p.reducedMotion) m.jumpTo(opts);
+    else m.easeTo({ ...opts, duration: 900 });
+  }, [ready, p.view3d, p.reducedMotion]);
+
+  // ---------- selection & hover ----------
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    const setSel = (id: string | null, v: boolean) => {
+      if (!id) return;
+      m.setFeatureState({ source: "alerts", id }, { selected: v });
+      m.setFeatureState({ source: "columns", id }, { selected: v });
+    };
+    setSel(prevSel.current, false);
+    setSel(p.selected, true);
+    prevSel.current = p.selected;
+    m.setFilter("selected-ring", ["==", ["get", "alert_id"], p.selected ?? ""]);
+    if (!p.selected) return;
+    const a = p.alerts.find((x) => x.alert_id === p.selected);
+    if (!a) return;
+    const target = { center: [a.lon, a.lat] as [number, number], zoom: Math.max(m.getZoom(), p.view3d ? 14 : 15.2), padding: p.padding };
+    if (p.reducedMotion) m.jumpTo(target);
+    else m.flyTo({ ...target, duration: 1200, curve: 1.4, essential: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, p.selected]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    if (prevHover.current) {
+      m.setFeatureState({ source: "alerts", id: prevHover.current }, { hover: false });
+    }
+    if (p.hovered) m.setFeatureState({ source: "alerts", id: p.hovered }, { hover: true });
+    prevHover.current = p.hovered;
+  }, [ready, p.hovered]);
+
+  // ---------- pulse animation (~30 fps, off for reduced motion) ----------
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m || p.reducedMotion) return;
+    let raf = 0;
+    let last = 0;
+    const tick = (t: number) => {
+      raf = requestAnimationFrame(tick);
+      if (t - last < 33) return;
+      last = t;
+      const k = (t % 2000) / 2000;
+      m.setPaintProperty("pulse", "circle-radius", 8 + k * 18);
+      m.setPaintProperty("pulse", "circle-stroke-opacity", 0.7 * (1 - k));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [ready, p.reducedMotion]);
+
+  return (
+    <div className="absolute inset-0">
+      <div ref={el} className="h-full w-full" role="region" aria-label="Map" />
+      <div ref={coordEl} className="pointer-events-none absolute bottom-2 left-[110px] z-10 hidden rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] text-white/85 backdrop-blur md:block" aria-hidden />
+    </div>
+  );
+});
