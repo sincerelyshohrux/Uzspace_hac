@@ -77,6 +77,20 @@ React 18 · TypeScript · Vite · Tailwind CSS · MapLibre GL · TanStack Query 
 
 ---
 
+## Run with Docker (recommended)
+
+Requirements: Docker Desktop.
+
+```bash
+git clone https://github.com/sincerelyshohrux/Uzspace_hac.git
+cd Uzspace_hac
+docker compose up --build
+```
+
+Open **http://localhost:8080**. The backend generates demo data on first start and keeps it,
+together with inspector decisions, in the `data` volume. Stop with `docker compose down`
+(add `-v` to reset all data).
+
 ## Run locally
 
 Requirements: Python 3.11+, Node 18+, `make`.
@@ -169,7 +183,7 @@ a confusion matrix computed from it.
 
 - [x] Backend API, risk scoring, audit log, PDF / CSV
 - [x] Inspector dashboard, statistics, accuracy page, UZ / EN
-- [ ] Docker setup
+- [x] Docker setup
 - [ ] Sentinel-2 change detection pipeline for Tashkent
 - [ ] Real restricted zones from OpenStreetMap
 - [ ] Validation on a labelled sample
