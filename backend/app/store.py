@@ -1,8 +1,7 @@
-"""Ma'lumot qatlami.
+"""Data layer.
 
-Pipeline natijalari (alerts.geojson va boshqalar) faqat o'qiladi va xotirada turadi.
-Inspektor o'zgartiradigan narsalar (holat, izoh, audit log) SQLite da saqlanadi.
-Production da buni PostgreSQL + PostGIS ga almashtirish mumkin: interfeys o'zgarmaydi.
+Pipeline outputs (alerts.geojson etc.) are read-only and kept in memory.
+Inspector changes (status, comment, audit log) are stored in SQLite.
 """
 from __future__ import annotations
 
@@ -29,7 +28,6 @@ class Store:
         self.reload()
         self._init_db()
 
-    # ---------- pipeline natijalari ----------
     def _read_json(self, name: str, default: Any) -> Any:
         p = self.data_dir / name
         if not p.exists():
@@ -49,7 +47,6 @@ class Store:
         self.zones: dict = self._read_json("zones.geojson", {"type": "FeatureCollection", "features": []})
         self.districts: dict = self._read_json("districts.geojson", {"type": "FeatureCollection", "features": []})
 
-    # ---------- SQLite: holat va audit ----------
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
@@ -174,7 +171,6 @@ class Store:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    # ---------- filtrlash ----------
     def query(
         self,
         district: Optional[str] = None,

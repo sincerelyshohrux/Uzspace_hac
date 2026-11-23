@@ -4,7 +4,7 @@
 // VITE_DATA_MODE = "api" | "demo" | "auto" (default auto: use the API if /api/health answers).
 export type DataMode = "api" | "demo";
 
-const KEY = "qn-data-mode";
+const KEY = "ss-data-mode";
 let mode: DataMode = "demo";
 
 export function getMode(): DataMode {

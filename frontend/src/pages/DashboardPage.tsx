@@ -145,7 +145,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     <MapControls map={mapRef} basemap={s.basemap} onBasemap={(b) => set({ basemap: b })} view3d={s.view3d} on3d={(v) => set({ view3d: v })} layers={layers} onLayers={setLayers} />
   );
 
-  // ---------------- mobile ----------------
+  // Mobile: map on top, list below, detail as a bottom sheet
   if (!bp.md) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -167,14 +167,13 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     );
   }
 
-  // ---------------- tablet / desktop ----------------
+  // Tablet / desktop: floating panels over the map
   const rightOffset = detailDocked ? DW + GAP * 2 : GAP;
   const leftOffset = docked ? QW + GAP * 2 : GAP;
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">
       {map}
 
-      {/* left: queue */}
       {docked ? (
         <motion.aside
           initial={reduce ? false : { opacity: 0, x: -16 }}
@@ -196,7 +195,6 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
         </>
       )}
 
-      {/* right: detail / overview */}
       {bp.lg ? (
         <AnimatePresence mode="popLayout">
           {(s.alert || bp.xl) && (
@@ -219,7 +217,6 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
         </Dialog>
       )}
 
-      {/* map chrome */}
       <div className="absolute top-3 z-10 transition-[right] duration-300" style={{ right: rightOffset }}>{controls}</div>
       <Legend className="absolute z-10 hidden transition-[left] duration-300 lg:block" style={{ left: leftOffset, bottom: 104 }} />
       <div className="absolute z-10 transition-[left,right] duration-300" style={{ left: leftOffset, right: rightOffset, bottom: GAP }}>

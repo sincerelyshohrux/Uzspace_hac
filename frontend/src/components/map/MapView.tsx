@@ -125,7 +125,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     },
   }));
 
-  // ---------- create map once ----------
   useEffect(() => {
     if (!el.current) return;
     const m = new maplibregl.Map({
@@ -156,7 +155,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         clusterProperties: { maxRisk: ["max", ["get", "risk_score"]] },
       });
 
-      // districts
       m.addLayer({ id: "districts-fill", type: "fill", source: "districts", paint: { "fill-color": "#22D3EE", "fill-opacity": ["case", ["==", ["get", "name"], ""], 0.06, 0] } });
       m.addLayer({ id: "districts-line", type: "line", source: "districts", paint: { "line-color": "#E2E8F0", "line-opacity": 0.45, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.6, 14, 1.6], "line-dasharray": [3, 2] } });
       m.addLayer({
@@ -165,7 +163,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         paint: { "text-color": "#E2E8F0", "text-halo-color": "rgba(7,11,20,.85)", "text-halo-width": 1.4, "text-opacity": 0.85 },
       });
 
-      // restricted zones
       m.addLayer({ id: "zones-fill", type: "fill", source: "zones", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": zoneColorExpr, "fill-opacity": 0.18 } });
       m.addLayer({ id: "zones-outline", type: "line", source: "zones", filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": zoneColorExpr, "line-width": 1.4, "line-opacity": 0.9 } });
       // protection corridor: width follows metres (buffer_m) at every zoom, lat ≈ 41.3
@@ -178,7 +175,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       m.addLayer({ id: "zones-line", type: "line", source: "zones", filter: ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["canal", "river"]]]], layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": zoneColorExpr, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.5, 16, 4] } });
       m.addLayer({ id: "zones-line-dashed", type: "line", source: "zones", filter: ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["power_line", "railway"]]]], paint: { "line-color": zoneColorExpr, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.2, 16, 2.5], "line-dasharray": [2, 1.5] } });
 
-      // density heatmap
       m.addLayer({
         id: "heat", type: "heatmap", source: "pts-raw", layout: { visibility: "none" },
         paint: {
@@ -190,7 +186,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         },
       });
 
-      // alert polygons (close zoom)
       m.addLayer({
         id: "alerts-fill", type: "fill", source: "alerts", minzoom: 12.5,
         paint: { "fill-color": riskColorExpr(), "fill-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 0.55, ["boolean", ["feature-state", "hover"], false], 0.5, 0.35] },
@@ -203,7 +198,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         },
       });
 
-      // 3D risk columns
       m.addLayer({
         id: "columns", type: "fill-extrusion", source: "columns", layout: { visibility: "none" },
         paint: {
@@ -214,10 +208,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         },
       });
 
-      // pulse ring for high risk
       m.addLayer({ id: "pulse", type: "circle", source: "pts-raw", minzoom: 11, maxzoom: 13.5, filter: [">=", ["get", "risk_score"], 60], paint: { "circle-radius": 10, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": RISK_HEX.high, "circle-stroke-width": 2, "circle-stroke-opacity": 0.6 } });
 
-      // clusters
       m.addLayer({
         id: "clusters", type: "circle", source: "pts", filter: ["has", "point_count"],
         paint: {
@@ -231,7 +223,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       });
       m.addLayer({ id: "cluster-count", type: "symbol", source: "pts", filter: ["has", "point_count"], layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": FONT, "text-size": 12, "text-allow-overlap": true }, paint: { "text-color": "#F8FAFC" } });
 
-      // single points (mid zoom)
       m.addLayer({
         id: "points", type: "circle", source: "pts", maxzoom: 13.5, filter: ["!", ["has", "point_count"]],
         paint: {
@@ -243,10 +234,9 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       });
       m.addLayer({ id: "selected-ring", type: "circle", source: "pts-raw", maxzoom: 13.5, filter: ["==", ["get", "alert_id"], ""], paint: { "circle-radius": 16, "circle-color": "rgba(34,211,238,.12)", "circle-stroke-color": "#22D3EE", "circle-stroke-width": 2.5 } });
 
-      // ---------- interactions ----------
       const pickable = ["alerts-fill", "points", "columns"];
       const idOf = (f?: MapGeoJSONFeature) => (f?.properties?.alert_id as string | undefined) ?? null;
-      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: "qn-pop" });
+      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: "ss-pop" });
 
       m.on("click", (e) => {
         const hit = m.queryRenderedFeatures(e.point, { layers: [...pickable, "clusters"].filter((l) => m.getLayoutProperty(l, "visibility") !== "none") });
@@ -295,7 +285,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     };
   }, []);
 
-  // ---------- data ----------
   useEffect(() => {
     const m = map.current;
     if (!ready || !m) return;
@@ -317,7 +306,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     map.current!.setPaintProperty("districts-fill", "fill-opacity", ["case", ["==", ["get", "name"], p.activeDistrict ?? ""], 0.08, 0]);
   }, [ready, p.activeDistrict]);
 
-  // ---------- basemap ----------
   useEffect(() => {
     const m = map.current;
     if (!ready || !m) return;
@@ -332,7 +320,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     m.setPaintProperty("districts-label", "text-halo-color", light ? "rgba(255,255,255,.9)" : "rgba(7,11,20,.85)");
   }, [ready, p.basemap]);
 
-  // ---------- layer prefs + 3D ----------
   useEffect(() => {
     const m = map.current;
     if (!ready || !m) return;
@@ -365,7 +352,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     else m.easeTo({ ...opts, duration: 900 });
   }, [ready, p.view3d, p.reducedMotion]);
 
-  // ---------- selection & hover ----------
   useEffect(() => {
     const m = map.current;
     if (!ready || !m) return;
@@ -397,7 +383,6 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     prevHover.current = p.hovered;
   }, [ready, p.hovered]);
 
-  // ---------- pulse animation (~30 fps, off for reduced motion) ----------
   useEffect(() => {
     const m = map.current;
     if (!ready || !m || p.reducedMotion) return;

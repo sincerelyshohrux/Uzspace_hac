@@ -1,4 +1,4 @@
-"""API kontrakti. Frontend dagi src/api/types.ts shu bilan bir xil bo'lishi kerak."""
+"""API contract. Must stay in sync with frontend/src/api/types.ts."""
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field

@@ -1,4 +1,4 @@
-"""Inspektor uchun bitta ogohlantirish bo'yicha PDF hisobot."""
+"""One-page PDF report for a single alert, for field inspectors."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,7 +28,7 @@ PERMIT_LABELS = {
 
 
 def _ascii(text: str) -> str:
-    """fpdf2 ning standart shriftlari faqat latin-1 ni qo'llaydi."""
+    """fpdf2 core fonts support latin-1 only."""
     return (
         text.replace("‘", "'").replace("’", "'").replace("ʻ", "'")
         .replace("ʼ", "'").replace("–", "-").replace("—", "-")
@@ -47,6 +47,10 @@ def build_pdf(alert: dict, data_dir: Path, is_mock: bool, audit: list[dict] | No
             pdf.text(50, 170, "DEMO")
         pdf.set_text_color(0, 0, 0)
 
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(8, 145, 178)
+    pdf.cell(0, 5, "SiteSentinel", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", "B", 16)
     pdf.cell(0, 10, _ascii(f"Ogohlantirish {alert['alert_id']}"), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)

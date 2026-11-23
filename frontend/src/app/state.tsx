@@ -87,9 +87,8 @@ export function useAppState() {
   return c;
 }
 
-// ---------- current user + "Mine" tracking ----------
 export const CURRENT_USER = "inspector.demo";
-const MINE_KEY = "qn-mine";
+const MINE_KEY = "ss-mine";
 export function getMine(): Set<string> {
   try {
     return new Set(JSON.parse(localStorage.getItem(MINE_KEY) ?? "[]") as string[]);
@@ -107,7 +106,6 @@ export function addMine(id: string) {
   }
 }
 
-// ---------- persisted map layer prefs ----------
 export interface LayerPrefs {
   alerts: boolean;
   zones: boolean;
@@ -125,7 +123,7 @@ export const DEFAULT_LAYERS: LayerPrefs = {
 };
 export function loadLayers(): LayerPrefs {
   try {
-    const v = localStorage.getItem("qn-layers");
+    const v = localStorage.getItem("ss-layers");
     if (v) return { ...DEFAULT_LAYERS, ...(JSON.parse(v) as Partial<LayerPrefs>) };
   } catch {
     /* ignore */
@@ -134,7 +132,7 @@ export function loadLayers(): LayerPrefs {
 }
 export function saveLayers(l: LayerPrefs) {
   try {
-    localStorage.setItem("qn-layers", JSON.stringify(l));
+    localStorage.setItem("ss-layers", JSON.stringify(l));
   } catch {
     /* ignore */
   }

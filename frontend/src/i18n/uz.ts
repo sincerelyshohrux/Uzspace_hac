@@ -1,5 +1,5 @@
 export const uz = {
-  app_name: "QurilishNazorat",
+  app_name: "SiteSentinel",
   app_sub: "Sun'iy yo'ldosh monitoringi",
   nav_dashboard: "Monitoring",
   nav_stats: "Statistika",

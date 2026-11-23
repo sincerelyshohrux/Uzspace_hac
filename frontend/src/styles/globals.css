@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---------- Design tokens (RGB triplets so Tailwind can apply alpha) ---------- */
+/* Design tokens as RGB triplets so Tailwind can apply alpha */
 :root {
   --bg-0: 244 246 250;
   --bg-1: 255 255 255;

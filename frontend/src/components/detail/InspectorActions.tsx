@@ -9,7 +9,7 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/cn";
 
-const draftKey = (id: string) => `qn-draft-${id}`;
+const draftKey = (id: string) => `ss-draft-${id}`;
 
 export function InspectorActions({ a, pending, onPending }: { a: Alert; pending: Status | null; onPending: (s: Status | null) => void }) {
   const { t } = useI18n();

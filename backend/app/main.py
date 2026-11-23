@@ -1,4 +1,4 @@
-"""QurilishNazorat API.
+"""SiteSentinel API.
 
 Serves pipeline outputs (outputs/) and stores inspector actions in SQLite.
 No satellite processing or model inference happens at request time.
@@ -21,7 +21,7 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="QurilishNazorat API", version="1.0.0", lifespan=lifespan,
+    app = FastAPI(title="SiteSentinel API", version="1.0.0", lifespan=lifespan,
                   description="Satellite-based construction monitoring: alerts, inspector workflow, statistics.")
     app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
     for r in (meta.router, alerts.router, stats.router, export.router):

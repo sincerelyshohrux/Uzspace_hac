@@ -17,7 +17,7 @@ const I18nCtx = createContext<Ctx | null>(null);
 
 function initialLang(): Lang {
   try {
-    const v = localStorage.getItem("qn-lang");
+    const v = localStorage.getItem("ss-lang");
     if (v === "uz" || v === "en") return v;
   } catch {
     /* ignore */
@@ -31,7 +31,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLangState(l);
     document.documentElement.lang = l;
     try {
-      localStorage.setItem("qn-lang", l);
+      localStorage.setItem("ss-lang", l);
     } catch {
       /* ignore */
     }

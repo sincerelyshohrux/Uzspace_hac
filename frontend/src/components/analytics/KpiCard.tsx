@@ -14,7 +14,7 @@ function CountUp({ value, decimals = 0 }: { value: number; decimals?: number }) 
   return <>{decimals ? v.toFixed(decimals) : Math.round(v)}</>;
 }
 
-/** KPI card: icon tile, count-up value, subtitle, optional sparkline, subtle 3D tilt that follows the pointer. */
+/** KPI card with count-up value, optional sparkline and pointer tilt. */
 export function KpiCard({ icon, label, value, decimals, unit, sub, tone = "accent", spark, className }: {
   icon: ReactNode; label: string; value: number | undefined; decimals?: number; unit?: string; sub?: string;
   tone?: "accent" | "high" | "mid" | "violet" | "blue" | "ok"; spark?: number[]; className?: string;

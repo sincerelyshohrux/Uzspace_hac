@@ -110,7 +110,6 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* header */}
       <div className="flex items-start gap-2 px-4 pb-3 pt-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

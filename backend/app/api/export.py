@@ -23,5 +23,5 @@ def export_csv(f: AlertFilters = Depends(), store: Store = Depends(get_store)):
     return Response(
         "﻿" + buf.getvalue(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="qurilishnazorat_alerts.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="sitesentinel_alerts.csv"'},
     )

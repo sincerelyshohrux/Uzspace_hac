@@ -1,7 +1,7 @@
 import type { Dict } from "./uz";
 
 export const en: Dict = {
-  app_name: "QurilishNazorat",
+  app_name: "SiteSentinel",
   app_sub: "Satellite monitoring",
   nav_dashboard: "Monitoring",
   nav_stats: "Statistics",

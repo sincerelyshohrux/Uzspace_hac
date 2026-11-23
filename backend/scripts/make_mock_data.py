@@ -2,9 +2,9 @@
 
 Writes every file of the data contract into outputs/ with is_mock = true, so the
 backend and frontend can be built and demoed before the real pipeline is ready.
-NOT REAL DATA. The real pipeline (pipeline/) writes the same files.
+NOT REAL DATA. The real satellite pipeline writes the same files.
 
-    python scripts/make_mock_data.py --out ../outputs --seed 42
+    python backend/scripts/make_mock_data.py --out outputs --seed 42
 """
 from __future__ import annotations
 
@@ -110,7 +110,6 @@ def district_of(cells: dict[str, Polygon], lon: float, lat: float) -> str:
     return min(DISTRICTS, key=lambda d: (d[2] - lon) ** 2 + (d[1] - lat) ** 2)[0]
 
 
-# ------------------------------------------------------------------ chips
 def draw_chip(g: Gen, alert: dict, ring_m: list[tuple[float, float]], which: str, path: Path) -> None:
     S = 256
     ext = chip_extent_m(alert["area_m2"])
@@ -122,23 +121,18 @@ def draw_chip(g: Gen, alert: dict, ring_m: list[tuple[float, float]], which: str
     rr = random.Random(zlib.crc32(alert["alert_id"].encode()))
     img = Image.new("RGB", (S, S), (118, 132, 88))
     d = ImageDraw.Draw(img)
-    # field stripes
     for i in range(0, S, 9):
         shade = rr.randint(-10, 10)
         d.rectangle([0, i, S, i + 4], fill=(110 + shade, 128 + shade, 80 + shade))
-    # road
     ry = rr.randint(30, 70)
     d.rectangle([0, S - ry - 10, S, S - ry + 6], fill=(168, 162, 150))
-    # neighbouring roofs
     for _ in range(rr.randint(2, 5)):
         x, y = rr.choice([(rr.randint(5, 60), rr.randint(5, 200)), (rr.randint(190, 240), rr.randint(5, 200))])
         w, h = rr.randint(18, 36), rr.randint(14, 30)
         d.rectangle([x, y, x + w, y + h], fill=rr.choice([(176, 172, 168), (150, 96, 80), (190, 190, 196)]), outline=(90, 90, 90))
-    # trees
     for _ in range(rr.randint(4, 10)):
         x, y, r = rr.randint(0, S), rr.randint(0, S), rr.randint(4, 8)
         d.ellipse([x - r, y - r, x + r, y + r], fill=(58, 96, 52))
-    # zone context
     zones = alert["zones"]
     if "canal" in zones or "river" in zones:
         d.line([(0, 40), (S, 90)], fill=(70, 110, 140), width=14 if "river" in zones else 9)
@@ -159,7 +153,6 @@ def draw_chip(g: Gen, alert: dict, ring_m: list[tuple[float, float]], which: str
     else:
         if ct == "new_construction":
             d.polygon(poly_px, fill=(198, 200, 206), outline=(70, 70, 76))
-            # roof ridge
             d.line([poly_px[0], poly_px[2]], fill=(160, 162, 170), width=1)
         elif ct == "land_clearing":
             d.polygon(poly_px, fill=(176, 146, 104))
@@ -170,14 +163,12 @@ def draw_chip(g: Gen, alert: dict, ring_m: list[tuple[float, float]], which: str
                 y = rr.uniform(min(p[1] for p in poly_px), max(p[1] for p in poly_px))
                 d.point((x, y), fill=(100, 92, 84))
     img = img.filter(ImageFilter.GaussianBlur(0.6))
-    # a little sensor noise
     noise = Image.effect_noise((S, S), 10).convert("RGB")
     img = Image.blend(img, noise, 0.06)
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, optimize=True)
 
 
-# ------------------------------------------------------------------ main
 def generate(out: Path, seed: int, n: int) -> None:
     g = Gen(seed)
     cells = district_cells()
@@ -266,7 +257,6 @@ def generate(out: Path, seed: int, n: int) -> None:
             series.append({"month": month, "built": None if winter else round(min(1, max(0, v)), 2)})
         timeseries[alert_id] = series
 
-    # ---------- layers
     zone_features = []
     names = {"canal": "Bo'zsuv kanali (demo)", "river": "Chirchiq tarmog'i (demo)",
              "power_line": "110 kV elektr liniyasi (demo)", "railway": "Temir yo'l (demo)"}
@@ -284,7 +274,6 @@ def generate(out: Path, seed: int, n: int) -> None:
         coords = [[round(x, 5), round(y, 5)] for x, y in poly.exterior.coords]
         district_features.append({"type": "Feature", "properties": {"name": name}, "geometry": {"type": "Polygon", "coordinates": [coords]}})
 
-    # ---------- demo inspector activity (seeded into SQLite on first start)
     ranked = sorted(features, key=lambda f: -f["properties"]["risk_score"])
     activity = []
     t0 = datetime(2026, 11, 2, 9, 0, tzinfo=timezone.utc)

@@ -75,7 +75,7 @@ export function AlertQueue(p: Props) {
   const exportCsv = () => {
     const url = exportUrl(p.filters);
     if (url) window.open(url, "_blank");
-    else downloadText("qurilishnazorat_alerts.csv", toCsv(p.items));
+    else downloadText("sitesentinel_alerts.csv", toCsv(p.items));
     toast.success(`CSV · ${p.items.length}`);
   };
 

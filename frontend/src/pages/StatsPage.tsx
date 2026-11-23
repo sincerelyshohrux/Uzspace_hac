@@ -59,7 +59,7 @@ export function StatsPage({ onDistrict }: { onDistrict: (d: string) => void }) {
   const exportCsv = () => {
     const url = exportUrl(EMPTY_FILTERS);
     if (url) window.open(url, "_blank");
-    else downloadText("qurilishnazorat_alerts.csv", toCsv(items));
+    else downloadText("sitesentinel_alerts.csv", toCsv(items));
   };
 
   return (

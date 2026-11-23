@@ -5,7 +5,7 @@ import type {
   Meta, Metrics, Summary, TimelinePoint, TimeseriesPoint, ZoneLayer,
 } from "./types";
 
-const KEY = "qn-demo-state-v2";
+const KEY = "ss-demo-state-v2";
 const BASE = `${import.meta.env.BASE_URL}demo/`;
 
 interface State {
