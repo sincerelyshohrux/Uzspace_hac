@@ -2,7 +2,7 @@ services:
   backend:
     build: ./backend
     volumes:
-      - data:/data
+      - ./outputs:/data
     restart: unless-stopped
 
   frontend:
@@ -14,5 +14,3 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-volumes:
-  data:

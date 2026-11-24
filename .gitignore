@@ -15,9 +15,9 @@ __pycache__/
 node_modules/
 frontend/dist/
 
-# Generated data (rebuild with backend/scripts/make_mock_data.py)
-outputs/
+# outputs/ is committed (pipeline results); only the local database is ignored
 frontend/public/demo/
 *.db
 *.db-wal
 *.db-shm
+pipeline/cache/
