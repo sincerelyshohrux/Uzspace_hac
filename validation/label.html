@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiteSentinel — Validation labelling</title>
+<style>
+  :root { --bg:#0b1020; --card:#131a2e; --line:#26304a; --fg:#e2e8f0; --fg2:#94a3b8; --acc:#22d3ee; --ok:#22c55e; --no:#ef4444; --mid:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, -apple-system, sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:17px; } h1 span { color:var(--acc); }
+  .bar { flex:1 1 200px; height:8px; background:var(--line); border-radius:4px; overflow:hidden; min-width:120px; }
+  .bar i { display:block; height:100%; background:var(--acc); width:0; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .imgs { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  figure { margin:0; position:relative; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  figure img { display:block; width:100%; aspect-ratio:1; image-rendering:auto; }
+  figcaption { position:absolute; top:8px; left:8px; background:rgba(0,0,0,.6); padding:2px 8px; border-radius:6px; font-weight:600; font-size:12px; }
+  .px { position:absolute; left:50%; top:50%; width:3.4%; height:3.4%; transform:translate(-50%,-50%); border:2px solid #ff2bd6; box-shadow:0 0 0 1px #000; pointer-events:none; }
+  .ring { position:absolute; left:50%; top:50%; width:20%; height:20%; transform:translate(-50%,-50%); border:1px dashed rgba(255,255,255,.55); border-radius:50%; pointer-events:none; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:14px; }
+  button, a.btn { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; cursor:pointer; text-decoration:none; }
+  button:hover, a.btn:hover { border-color:var(--acc); }
+  .yes { border-color:var(--ok); } .yes.on { background:var(--ok); color:#04130a; }
+  .no { border-color:var(--no); } .no.on { background:var(--no); color:#1a0505; }
+  .uns { border-color:var(--mid); } .uns.on { background:var(--mid); color:#1a1205; }
+  kbd { font:12px ui-monospace, monospace; background:rgba(255,255,255,.08); border-radius:4px; padding:1px 5px; margin-left:4px; }
+  .muted { color:var(--fg2); font-size:13px; }
+  details { margin-top:16px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; }
+  summary { cursor:pointer; font-weight:600; }
+  input { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:160px; }
+  .hr { position:relative; aspect-ratio:1; overflow:hidden; background:#000; }
+  .hr .tiles { position:absolute; display:grid; grid-template-columns:repeat(3,256px); width:768px; transform-origin:0 0; }
+  .hr .tiles img { width:256px; height:256px; display:block; }
+  .hr .mk { position:absolute; border:2px solid #ff2bd6; box-shadow:0 0 0 1px #000; pointer-events:none; transform:translate(-50%,-50%); }
+  .small figure img { max-height:240px; object-fit:cover; }
+  .small { grid-template-columns:1fr 1fr; }
+  h2 { font-size:13px; color:var(--fg2); font-weight:600; margin:14px 0 6px; text-transform:uppercase; letter-spacing:.06em; }
+  @media (max-width:640px) { .imgs { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Site<span>Sentinel</span> · validation <small class="muted">v2</small></h1>
+  <div class="bar"><i id="bar"></i></div>
+  <div id="count" class="muted"></div>
+  <input id="who" placeholder="Ismingiz" aria-label="Labeller name">
+  <button id="export">CSV yuklab olish</button>
+</header>
+<main>
+  <div class="row" style="margin-top:0;justify-content:space-between">
+    <div><b id="pid"></b> <span id="coords" class="muted"></span></div>
+    <div class="row" style="margin:0">
+      <button id="prev">← Oldingi</button>
+      <button id="next">Keyingi →</button>
+      <button id="todo">Belgilanmaganiga o'tish</button>
+    </div>
+  </div>
+  <h2>Yuqori aniqlik · Esri Wayback (asosiy)</h2>
+  <div class="imgs">
+    <figure><div class="hr" id="hr1"></div><figcaption>2023 (Wayback 2023-08)</figcaption></figure>
+    <figure><div class="hr" id="hr2"></div><figcaption>2025 (Wayback 2025-09)</figcaption></figure>
+  </div>
+  <h2>Sentinel-2 · 10 m (model shu rasmlarni ko'radi)</h2>
+  <div class="imgs small">
+    <figure><img id="t1" alt="T1 2023"><figcaption>T1 · yoz 2023</figcaption><div class="ring"></div><div class="px"></div></figure>
+    <figure><img id="t2" alt="T2 2025"><figcaption>T2 · yoz 2025</figcaption><div class="ring"></div><div class="px"></div></figure>
+  </div>
+  <div class="row">
+    <button class="yes" data-l="change">O'zgarish bor<kbd>1</kbd></button>
+    <button class="no" data-l="no_change">O'zgarish yo'q<kbd>2</kbd></button>
+    <button class="uns" data-l="unsure">Bilmayman<kbd>3</kbd></button>
+    <a class="btn" id="gmaps" target="_blank" rel="noopener">Yuqori aniqlikda ochish ↗</a>
+  </div>
+  <details open>
+    <summary>Qanday belgilash kerak</summary>
+    <ul class="muted">
+      <li>Asosan <b>tepadagi yuqori aniqlikdagi rasmlarga</b> qarang. <b>Pushti kvadrat</b> — tekshirilayotgan 10×10 m joy.</li>
+      <li>Ba'zi joylarda Wayback rasmi yangilanmagan bo'lishi mumkin (ikkala rasm aynan bir xil). Unda pastdagi Sentinel-2 rasmlariga qarang; ular ham aniq bo'lmasa — <b>Bilmayman</b>.</li>
+      <li><b>O'zgarish bor</b>: 2023 yozidan 2025 yozigacha shu joyda yangi bino, qurilish maydoni, poydevor yoki qurilish uchun tozalangan yer paydo bo'lgan.</li>
+      <li><b>O'zgarish yo'q</b>: o'sha-o'sha (eski bino, yo'l, dala, park). Ekin o'sib-qurishi va soyalar o'zgarish emas.</li>
+      <li>Shoshilmang: har nuqtaga 10–20 soniya. Ishonchingiz komil bo'lmasa, <b>Bilmayman</b> ni bosing.</li>
+      <li>Bu sahifa model nima deganini <b>ko'rsatmaydi</b>, shuning uchun faqat rasmga qarab belgilang.</li>
+      <li>Belgilar brauzerda avtomatik saqlanadi. Oxirida <b>CSV yuklab olish</b> ni bosing va faylni <code>validation/labels.csv</code> sifatida saqlang.</li>
+    </ul>
+  </details>
+</main>
+<script src="sample.js"></script>
+<script>
+  const S = window.SAMPLE || [];
+  const KEY = "ss-validation-labels-v2";   // v2: high-res imagery added, labels start fresh
+  let labels = {};
+  try { labels = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  try { document.getElementById("who").value = localStorage.getItem(KEY + "-who") || ""; } catch (e) {}
+  let secs = {}; try { secs = JSON.parse(localStorage.getItem(KEY + "-secs") || "{}"); } catch (e) {}
+  let shownAt = Date.now();
+  let i = Math.max(0, S.findIndex((p) => !labels[p.id]));
+  const $ = (id) => document.getElementById(id);
+
+  // Esri Wayback tiles (z18 ≈ 0.45 m/px here): 3×3 tiles around the point, point centred
+  const Z = 18;
+  function mosaic(el, release, p) {
+    const n = 2 ** Z, lat = p.lat * Math.PI / 180;
+    const fx = (p.lon + 180) / 360 * n, fy = (1 - Math.asinh(Math.tan(lat)) / Math.PI) / 2 * n;
+    const tx = Math.floor(fx), ty = Math.floor(fy);
+    const box = $(el), W = box.clientWidth || 400, scale = W / 512;   // show 512 px of the 768 px mosaic
+    let html = '<div class="tiles" style="transform:scale(' + scale + ') translate(' + (256 - (fx - tx + 1) * 256 + 0) + 'px,' + (256 - (fy - ty + 1) * 256) + 'px)">';
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+      html += `<img loading="eager" alt="" src="https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/${release}/${Z}/${ty + dy}/${tx + dx}">`;
+    const mPerPx = 156543.03392 * Math.cos(lat) / n, side = 10 / mPerPx * scale;
+    html += `</div><div class="mk" style="left:50%;top:50%;width:${side}px;height:${side}px"></div>`;
+    box.innerHTML = html;
+  }
+  window.addEventListener("resize", () => render());
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(labels)); localStorage.setItem(KEY + "-secs", JSON.stringify(secs)); } catch (e) {} }
+  function render() {
+    const p = S[i]; if (!p) return;
+    shownAt = Date.now();
+    $("pid").textContent = `${p.id}  (${i + 1} / ${S.length})`;
+    $("coords").textContent = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
+    $("t1").src = `chips/${p.id}_t1.jpg`;
+    $("t2").src = `chips/${p.id}_t2.jpg`;
+    mosaic("hr1", 64776, p); mosaic("hr2", 58924, p);
+    $("gmaps").href = `https://www.google.com/maps/@${p.lat},${p.lon},150m/data=!3m1!1e3`;
+    document.querySelectorAll("[data-l]").forEach((b) => b.classList.toggle("on", labels[p.id] === b.dataset.l));
+    const done = S.filter((q) => labels[q.id]).length;
+    $("count").textContent = `${done} / ${S.length} belgilandi`;
+    $("bar").style.width = `${(done / S.length) * 100}%`;
+  }
+  function setLabel(l) {
+    labels[S[i].id] = l;
+    secs[S[i].id] = Math.round((Date.now() - shownAt) / 1000);
+    save();
+    if (i < S.length - 1) i++;
+    render();
+  }
+  document.querySelectorAll("[data-l]").forEach((b) => b.addEventListener("click", () => setLabel(b.dataset.l)));
+  $("prev").onclick = () => { i = Math.max(0, i - 1); render(); };
+  $("next").onclick = () => { i = Math.min(S.length - 1, i + 1); render(); };
+  $("todo").onclick = () => { const k = S.findIndex((p) => !labels[p.id]); if (k >= 0) { i = k; render(); } };
+  $("who").oninput = (e) => { try { localStorage.setItem(KEY + "-who", e.target.value); } catch (er) {} };
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT") return;
+    if (e.key === "1") setLabel("change");
+    else if (e.key === "2") setLabel("no_change");
+    else if (e.key === "3") setLabel("unsure");
+    else if (e.key === "ArrowLeft") $("prev").click();
+    else if (e.key === "ArrowRight") $("next").click();
+  });
+  $("export").onclick = () => {
+    const who = $("who").value.trim() || "unknown";
+    const lines = ["point_id,label,labeller,seconds"].concat(S.filter((p) => labels[p.id]).map((p) => `${p.id},${labels[p.id]},${who.replace(/,/g, " ")},${secs[p.id] ?? ""}`));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+    a.download = "labels.csv"; a.click();
+  };
+  render();
+</script>
+</body>
+</html>

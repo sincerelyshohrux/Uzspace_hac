@@ -203,7 +203,7 @@ class Store:
                 w, s, e, n = bbox
                 if not (w <= a["lon"] <= e and s <= a["lat"] <= n):
                     return False
-            if q and q.lower() not in a["alert_id"].lower():
+            if q and q.lower() not in a["alert_id"].lower() and q.lower() not in a["district"].lower():
                 return False
             return True
 

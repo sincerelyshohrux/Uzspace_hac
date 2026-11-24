@@ -8,7 +8,7 @@ from affine import Affine
 from pyproj import Transformer
 from rasterio import features
 from scipy import ndimage
-from shapely.geometry import shape
+from shapely.geometry import Polygon, shape
 from shapely.ops import transform as shp_transform
 
 from . import config as C
@@ -54,6 +54,16 @@ def change_mask(t1: dict, t2: dict) -> tuple[np.ndarray, np.ndarray, dict]:
     return cand, np.nan_to_num(strength), {"t1": a, "t2": b, "d_ndvi": d_ndvi, "d_ndbi": d_ndbi}
 
 
+def _clean(poly):
+    """Valid single polygon without holes. Pixel outlines touch themselves at corners
+    (8-connectivity); growing the outline by 0.5 m joins those parts into one polygon."""
+    poly = Polygon(poly.exterior).buffer(0.5, join_style="mitre")
+    if poly.geom_type == "MultiPolygon":
+        poly = max(poly.geoms, key=lambda p: p.area)
+    out = Polygon(poly.exterior)
+    return out if out.is_valid else out.buffer(0)
+
+
 def polygons(mask: np.ndarray, strength: np.ndarray, idx: dict, transform) -> tuple[list[Detection], np.ndarray]:
     labels, n = ndimage.label(mask, structure=np.ones((3, 3)))
     if n == 0:
@@ -80,7 +90,7 @@ def polygons(mask: np.ndarray, strength: np.ndarray, idx: dict, transform) -> tu
     for geom, lab in features.shapes(labels.astype("int32"), mask=labels > 0, transform=aff, connectivity=8):
         lab = int(lab)
         k = lab - 1
-        poly = shape(geom).simplify(C.RES * 0.5)
+        poly = _clean(shape(geom).simplify(C.RES * 0.5))
         if poly.is_empty or poly.area < px_area:
             continue
         built = mean_dndbi[k] >= C.D_NDBI_MIN and mean_ndbi2[k] > -0.02

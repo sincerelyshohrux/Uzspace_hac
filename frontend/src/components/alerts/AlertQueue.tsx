@@ -103,10 +103,10 @@ export function AlertQueue(p: Props) {
             <input
               ref={p.searchRef}
               className="field w-full pl-8 pr-7"
-              placeholder="TSH-2025-…"
+              placeholder={t("search_ph_queue")}
               value={p.filters.q}
               onChange={(e) => p.onFilters({ q: e.target.value })}
-              aria-label="Search alert ID"
+              aria-label={t("search_ph_queue")}
             />
             {p.filters.q && (
               <button className="absolute right-2 top-1/2 -translate-y-1/2 text-fg3 hover:text-fg1" onClick={() => p.onFilters({ q: "" })} aria-label={t("reset")}>
@@ -133,7 +133,7 @@ export function AlertQueue(p: Props) {
               </PopoverTrigger>
             </Tip>
             <PopoverContent align="end" className="w-44 p-1">
-              {(["risk", "area", "new"] as const).map((s) => (
+              {(["risk", "area", "new", "status"] as const).map((s) => (
                 <button key={s} onClick={() => p.onSort(s)} className={cn("flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-[13px] hover:bg-bg3", p.sort === s && "text-accent")}>
                   {t(`sort_${s}`)}
                   {p.sort === s && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}

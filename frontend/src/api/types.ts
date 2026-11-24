@@ -100,6 +100,9 @@ export interface Metrics {
     features: string[];
   };
   limitations: string[];
+  /** Strata of the validation sample, when one has been drawn */
+  sampling?: { stratum: string; pixels: number; points: number }[] | null;
+  labelled?: { usable: number; total: number };
 }
 
 export interface Meta {
@@ -110,6 +113,8 @@ export interface Meta {
   generated_at: string;
   districts: string[];
   zones: Zone[];
+  scenes_t1?: string[];
+  scenes_t2?: string[];
 }
 
 export type ZoneLayer = GeoJSON.FeatureCollection<GeoJSON.Geometry, { zone: Zone; name: string; buffer_m: number }>;

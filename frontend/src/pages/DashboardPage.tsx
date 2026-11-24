@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { List } from "lucide-react";
+import { ChevronLeft, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Alert } from "@/api/types";
+import { STATUSES, type Alert } from "@/api/types";
 import { useAlerts, useDistrictLayer, useMeta, useZones } from "@/api/hooks";
 import { getMine, loadLayers, saveLayers, useAppState, type LayerPrefs, type QueueTab } from "@/app/state";
 import { useBreakpoint } from "@/app/useMedia";
@@ -34,6 +34,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
   const [hovered, setHovered] = useState<string | null>(null);
   const [layers, setLayersState] = useState<LayerPrefs>(loadLayers);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false); // user-collapsed alert list (desktop)
   const setLayers = (l: LayerPrefs) => {
     setLayersState(l);
     saveLayers(l);
@@ -62,6 +63,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     const sorted = [...r];
     if (s.sort === "area") sorted.sort((a, b) => b.area_m2 - a.area_m2);
     else if (s.sort === "new") sorted.sort((a, b) => (b.start_month ?? "").localeCompare(a.start_month ?? ""));
+    else if (s.sort === "status") sorted.sort((a, b) => STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status) || b.risk_score - a.risk_score);
     else sorted.sort((a, b) => b.risk_score - a.risk_score);
     return sorted;
   }, [capped, s.queue, s.sort, mine]);
@@ -87,7 +89,8 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     return () => window.removeEventListener("keydown", onKey);
   }, [s.alert, items, select]);
 
-  const docked = bp.lg; // floating queue on the left
+  // floating queue on the left; on laptop widths it yields to the detail panel so the map stays usable
+  const docked = bp.lg && !collapsed && (bp.xl || !s.alert);
   const detailDocked = bp.xl || (bp.lg && !!s.alert); // floating right panel
   const padding = {
     top: 70,
@@ -186,13 +189,25 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
         </motion.aside>
       ) : (
         <>
-          <Button className="glass absolute left-3 top-3 z-20" onClick={() => setQueueOpen(true)}>
+          <Button className="glass absolute left-3 top-3 z-20" onClick={() => (bp.xl && collapsed ? setCollapsed(false) : setQueueOpen(true))}>
             <List size={15} /> {t("alerts_n", { n: items.length })}
           </Button>
           <Dialog open={queueOpen} onOpenChange={setQueueOpen}>
             <SheetContent side="left" title="Alerts">{queue}</SheetContent>
           </Dialog>
         </>
+      )}
+
+      {docked && (
+        <button
+          onClick={() => setCollapsed(true)}
+          className="glass absolute top-1/2 z-30 grid h-10 w-5 -translate-y-1/2 place-items-center rounded-r-lg text-fg2 hover:text-fg1"
+          style={{ left: QW + GAP }}
+          aria-label={t("collapse_list")}
+          title={t("collapse_list")}
+        >
+          <ChevronLeft size={14} />
+        </button>
       )}
 
       {bp.lg ? (

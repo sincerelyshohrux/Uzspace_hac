@@ -18,6 +18,7 @@ import { BeforeAfter } from "./BeforeAfter";
 import { BuiltupChart } from "./BuiltupChart";
 import { FactorBars } from "./FactorBars";
 import { InspectorActions } from "./InspectorActions";
+import { NextStep, Provenance } from "./Provenance";
 import { RiskGauge } from "./RiskGauge";
 
 function Section({ title, hint, children, className }: { title: string; hint?: string; children: ReactNode; className?: string }) {
@@ -160,7 +161,11 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
           <div className={cn("mb-3 rounded-lg border px-2.5 py-1.5 text-xs font-medium", PERMIT_CLS[a.permit_match])}>
             {t(`pm_${a.permit_match}`)} {demo && <span className="opacity-70">{t("demo_registry")}</span>}
           </div>
-          <FactorBars risk={a.risk} score={a.risk_score} />
+          <FactorBars a={a} />
+        </Section>
+
+        <Section title={t("prov_title")} hint={t("prov_hint")}>
+          <Provenance meta={meta.data} />
         </Section>
 
         <Section title={t("facts")}>
@@ -195,6 +200,7 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
         </Section>
 
         <Section title={t("actions")}>
+          <div className="mb-3"><NextStep a={a} /></div>
           <InspectorActions a={a} pending={pending} onPending={setPending} />
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             <Button size="sm" onClick={pdf}><FileText size={14} /> {t("report_pdf")}</Button>

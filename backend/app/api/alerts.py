@@ -53,7 +53,7 @@ def audit(alert_id: str, store: Store = Depends(get_store)):
 @router.get("/{alert_id}/report.pdf")
 def report(alert_id: str, store: Store = Depends(get_store)):
     a = _get_or_404(store, alert_id)
-    pdf = build_pdf(a, store.data_dir, bool(store.meta.get("is_mock")), store.audit(alert_id))
+    pdf = build_pdf(a, store.data_dir, bool(store.meta.get("is_mock")), store.audit(alert_id), store.meta)
     return Response(
         pdf,
         media_type="application/pdf",

@@ -8,3 +8,4 @@ shapely>=2.0
 pyproj>=3.6
 pillow>=10.0
 requests>=2.31
+scikit-learn>=1.5

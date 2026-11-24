@@ -36,7 +36,23 @@ def _ascii(text: str) -> str:
     )
 
 
-def build_pdf(alert: dict, data_dir: Path, is_mock: bool, audit: list[dict] | None = None) -> bytes:
+STATUS_LABELS = {"new": "Yangi", "in_review": "Tekshiruvda", "confirmed": "Tasdiqlandi", "false_positive": "Yolg'on signal"}
+
+
+def _provenance(meta: dict) -> list[str]:
+    s1 = ", ".join(meta.get("scenes_t1", [])) or meta.get("period_t1", "-")
+    s2 = ", ".join(meta.get("scenes_t2", [])) or meta.get("period_t2", "-")
+    return [
+        f"- Aniqlash (model): Sentinel-2 L2A, 10 m. T1 suratlari: {s1}. T2 suratlari: {s2}.",
+        "- Vizual tekshiruv: Esri World Imagery Wayback (~0.5 m), 2023-08 va 2025-09 nashrlari. "
+        "Model bu suratlardan foydalanmagan; ular faqat mustaqil ko'rish uchun.",
+        "- Maydon va boshlanish oyi taxminiy (10 m piksellar, bulutli oylar).",
+        "- Zonalar: OpenStreetMap; himoya kengliklari taxminiy, rasmiy chegaralar emas.",
+        "- Ruxsatnoma reyestri: ma'lumot yo'q (ulanmagan).",
+    ]
+
+
+def build_pdf(alert: dict, data_dir: Path, is_mock: bool, audit: list[dict] | None = None, meta: dict | None = None) -> bytes:
     pdf = FPDF(format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -73,9 +89,9 @@ def build_pdf(alert: dict, data_dir: Path, is_mock: bool, audit: list[dict] | No
         ("Taxminiy boshlanish", alert.get("start_month") or "-"),
         ("Zonalar", ", ".join(ZONE_LABELS.get(z, z) for z in alert.get("zones", [])) or "Cheklangan zona yo'q"),
         ("Ruxsatnoma", PERMIT_LABELS.get(alert["permit_match"], alert["permit_match"])),
-        ("Model ishonchi", f"{alert['confidence'] * 100:.0f}%"),
+        ("O'zgarish signali", f"{alert['confidence'] * 100:.0f}% (evristik ball, ehtimollik emas)"),
         ("Xavf balli", f"{alert['risk_score']:.0f} / 100"),
-        ("Holat", alert.get("status", "new")),
+        ("Holat", STATUS_LABELS.get(alert.get("status", "new"), alert.get("status", "new"))),
         ("Google Maps", f"https://www.google.com/maps?q={alert['lat']:.6f},{alert['lon']:.6f}"),
     ]
     for k, v in rows:
@@ -88,7 +104,7 @@ def build_pdf(alert: dict, data_dir: Path, is_mock: bool, audit: list[dict] | No
     pdf.ln(2)
     pdf.set_font("Helvetica", "I", 9)
     pdf.multi_cell(0, 5, _ascii(
-        f"Xavf = 100 x ishonch {r['confidence']:.2f} x zona {r['zone_weight']:.2f} "
+        f"Xavf = 100 x signal {r['confidence']:.2f} x zona {r['zone_weight']:.2f} "
         f"x maydon {r['area_factor']:.2f} x ruxsatnoma {r['permit_factor']:.2f}"
     ))
 
@@ -103,6 +119,13 @@ def build_pdf(alert: dict, data_dir: Path, is_mock: bool, audit: list[dict] | No
         pdf.image(str(before), x=10, y=y + 2, w=90)
         pdf.image(str(after), x=110, y=y + 2, w=90)
         pdf.set_y(y + 96)
+
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Dalil manbalari", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 9)
+    for line in _provenance(meta or {}):
+        pdf.multi_cell(0, 5, _ascii(line), new_x="LMARGIN", new_y="NEXT")
 
     if alert.get("note"):
         pdf.ln(3)

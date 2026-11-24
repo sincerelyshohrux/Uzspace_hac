@@ -10,7 +10,7 @@ changes that **require inspection**, explains why, and records what the inspecto
 
 > **Status: working prototype on real data.** The alerts in `outputs/` come from Sentinel-2
 > imagery of Tashkent (2023 vs 2025) and OpenStreetMap zones. Model accuracy is **not validated
-> yet**; the accuracy page shows demo values and is marked **DEMO** (see [Validation](#validation)).
+> yet**; the accuracy page shows the sampling plan and no numbers until labels exist (see [Validation](#validation)).
 
 ---
 
@@ -25,6 +25,8 @@ changes that **require inspection**, explains why, and records what the inspecto
 | Mirahmad Zoxidov | ML / validation | Change detection method, labelled validation sample, precision / recall and error analysis |
 
 ---
+
+> Demo script for the jury: [docs/DEMO.md](docs/DEMO.md)
 
 ## What it does
 
@@ -45,9 +47,9 @@ risk = 100 × confidence × zone_weight × area_factor × permit_factor
 
 | Factor | Meaning | Values |
 |---|---|---|
-| `confidence` | detector confidence that the change is new construction | 0 – 1 |
+| `confidence` | change-signal score from the detector (a ranking heuristic, not a calibrated probability) | 0 – 1 |
 | `zone_weight` | most restrictive zone the polygon touches (OpenStreetMap) | power line 1.0 · canal / river 0.9 · park 0.8 · farmland 0.7 · railway / cemetery 0.6 · none 0.3 |
-| `area_factor` | larger footprint → higher priority | `min(1, log10(area_m2) / 4)` |
+| `area_factor` | larger footprint → higher priority (log scale from the smallest detectable 500 m² to the 150 000 m² cap) | 0.4 – 1.0 |
 | `permit_factor` | match against permit registry | none / no data 1.0 · partial 0.6 · matched 0.2 |
 
 Alerts with risk ≥ 60 are shown as *high*, 30–59 *medium*, below 30 *low*.
@@ -92,6 +94,7 @@ make pipeline         # downloads imagery (cached in pipeline/cache/) and writes
 |---|---|---|
 | Synthetic data (`make_mock_data.py`) | accuracy page (until validation), offline demo | demo only |
 | Esri World Imagery | satellite basemap in the map view | in use (display only) |
+| Esri World Imagery Wayback (2023-08, 2025-09 releases) | high-resolution before / after view and validation labelling | in use (display only) |
 | OpenStreetMap tiles | streets / dark basemap | in use (display only) |
 | OpenMapTiles fonts | map labels | in use (display only) |
 | Sentinel-2 L2A (Copernicus, via Microsoft Planetary Computer) | change detection T1 → T2, monthly signal, image chips | in use |
@@ -157,7 +160,8 @@ synthetic demo data).
 ### Demo walkthrough
 
 1. Dashboard → **Start with the highest-risk alert**: the map flies to it and opens the detail panel.
-2. Compare T1 / T2 with the slider, side-by-side or blink mode; read *Why it requires inspection*.
+2. Compare 2023 / 2025 in high resolution (Esri Wayback) or switch to the Sentinel-2 images the model used;
+   slider, side-by-side or blink mode; read *Why it requires inspection*.
 3. Change status to *In review* → confirm → the audit log updates.
 4. Download the PDF report or export the filtered list to CSV.
 5. Drag the timeline to see how alerts appeared month by month; switch to 3D view.
@@ -202,9 +206,35 @@ pipeline/         Sentinel-2 download, change detection, time series, chips
 
 ## Validation
 
-Not available yet. The accuracy page currently shows **demo values** and is labelled as such.
-Planned: a manually labelled sample of detected polygons in Tashkent, with precision, recall and
-a confusion matrix computed from it.
+Accuracy is measured on a **stratified random sample** of 350 pixels inside the city, labelled
+by hand by the team (`validation/`):
+
+| Stratum | Pixels in it | Sample |
+|---|---|---|
+| inside a published alert | 104 830 | 100 |
+| passed the pixel rule but not published | 483 238 | 100 |
+| everything else in the city | 3 676 998 | 150 |
+
+The labelling page shows only the T1 / T2 images of each point, not the model output (blind
+labelling). Labels: *change* (new building, construction site, land cleared for building),
+*no change*, or *unsure* (dropped). Precision and recall are weighted by stratum size, so they
+estimate city-wide accuracy, not just accuracy on the sample.
+
+Three methods are compared on the same points:
+
+- **Baseline** — plain index differencing (ΔNDVI > 0.12 or ΔNDBI > 0.06, not water).
+- **ML model** — Random Forest on the same Sentinel-2 indices, 5-fold cross-validated
+  (every point is scored by a model that did not see it).
+- **Published alerts** — the rule set with seasonal and object filters (`system` in metrics.json),
+  plus object precision: the share of sampled alerts that are real changes.
+
+```bash
+make sample     # draw the sample and image chips (already committed in validation/)
+make label      # open http://localhost:8090/label.html, label, download labels.csv into validation/
+make evaluate   # writes outputs/metrics.json; the accuracy page then shows real values
+```
+
+Until `labels.csv` exists, the accuracy page shows demo values marked **DEMO**.
 
 ## Limitations
 
@@ -222,7 +252,8 @@ a confusion matrix computed from it.
 - [x] Docker setup
 - [x] Sentinel-2 change detection pipeline for Tashkent
 - [x] Restricted zones and districts from OpenStreetMap
-- [ ] Validation on a labelled sample
+- [x] Validation sample, labelling page and evaluation
+- [ ] Team labels the 350 points; publish measured accuracy
 
 ---
 

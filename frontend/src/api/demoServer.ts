@@ -75,7 +75,7 @@ export function applyFilters(items: Alert[], f: Filters): Alert[] {
       if (a.risk_score < f.minRisk) return false;
       if (f.status && a.status !== f.status) return false;
       if (f.changeType && a.change_type !== f.changeType) return false;
-      if (q && !a.alert_id.toLowerCase().includes(q)) return false;
+      if (q && !a.alert_id.toLowerCase().includes(q) && !a.district.toLowerCase().includes(q)) return false;
       return true;
     })
     .sort((a, b) => b.risk_score - a.risk_score);

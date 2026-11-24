@@ -1,12 +1,15 @@
-import { ChevronsLeftRight } from "lucide-react";
+import { ChevronsLeftRight, Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Alert } from "@/api/types";
 import { Segmented } from "@/components/ui/segmented";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/cn";
-import { ringToChip } from "@/lib/geo";
+import { chipExtentM, ringToChip } from "@/lib/geo";
+import { WAYBACK, waybackTiles } from "@/lib/wayback";
 
 type Mode = "slider" | "side" | "blink";
+type Source = "hires" | "s2";
+type Side = "t1" | "t2";
 
 function Outline({ a }: { a: Alert }) {
   const pts = ringToChip(a.geometry.coordinates[0], a.lon, a.lat, a.area_m2).map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
@@ -17,12 +20,38 @@ function Outline({ a }: { a: Alert }) {
   );
 }
 
-function Img({ src, label, a, demo }: { src: string | null; label: string; a: Alert; demo: boolean }) {
+/** High-resolution Esri Wayback mosaic over the same square as the Sentinel-2 chip. */
+function HiRes({ a, side, label, onFail }: { a: Alert; side: Side; label: string; onFail: () => void }) {
+  const tiles = waybackTiles(WAYBACK[side].release, a.lon, a.lat, chipExtentM(a.area_m2));
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-bg3" role="img" aria-label={label}>
+      {tiles.map((tl) => (
+        <img
+          key={tl.key}
+          src={tl.src}
+          alt=""
+          draggable={false}
+          onError={onFail}
+          className="absolute max-w-none select-none"
+          style={{ left: `${tl.left}%`, top: `${tl.top}%`, width: `${tl.size}%`, height: `${tl.size}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Img({ src, label, a, demo, source, side, onFail }: { src: string | null; label: string; a: Alert; demo: boolean; source: Source; side: Side; onFail: () => void }) {
   return (
     <div className="absolute inset-0">
-      {src ? <img src={src} alt={label} className="h-full w-full select-none object-cover [image-rendering:auto]" draggable={false} /> : <div className="h-full w-full bg-bg3" />}
+      {source === "hires" ? (
+        <HiRes a={a} side={side} label={label} onFail={onFail} />
+      ) : src ? (
+        <img src={src} alt={label} className="h-full w-full select-none object-cover [image-rendering:auto]" draggable={false} />
+      ) : (
+        <div className="h-full w-full bg-bg3" />
+      )}
       <Outline a={a} />
-      {demo && <span className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1 text-[9px] font-semibold tracking-wider text-white/90">DEMO</span>}
+      {demo && source === "s2" && <span className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1 text-[9px] font-semibold tracking-wider text-white/90">DEMO</span>}
     </div>
   );
 }
@@ -30,12 +59,27 @@ function Img({ src, label, a, demo }: { src: string | null; label: string; a: Al
 export function BeforeAfter({ a, before, after, demo }: { a: Alert; before: string | null; after: string | null; demo: boolean }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("slider");
+  // Demo alerts are synthetic, so real high-resolution imagery would not match them
+  const [source, setSource] = useState<Source>(demo ? "s2" : "hires");
+  const [failed, setFailed] = useState(false);
+  const fail = () => setFailed(true);
   const [pos, setPos] = useState(50);
   const [blinkB, setBlinkB] = useState(true);
   const box = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+  const [fs, setFs] = useState(false);
+  useEffect(() => {
+    const on = () => setFs(document.fullscreenElement === root.current);
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
+  const toggleFs = () =>
+    (document.fullscreenElement ? document.exitFullscreen() : root.current?.requestFullscreen())?.catch(() => undefined);
 
   useEffect(() => setPos(50), [a.alert_id]);
+  useEffect(() => setFailed(false), [a.alert_id, source]);
+  useEffect(() => setSource(demo ? "s2" : "hires"), [demo]);
   useEffect(() => {
     if (mode !== "blink") return;
     const id = setInterval(() => setBlinkB((b) => !b), 800);
@@ -50,15 +94,32 @@ export function BeforeAfter({ a, before, after, demo }: { a: Alert; before: stri
   const key = (e: KeyboardEvent) => {
     if (e.key === "ArrowLeft") setPos((p) => Math.max(0, p - 5));
     if (e.key === "ArrowRight") setPos((p) => Math.min(100, p + 5));
+    if (e.key === "Home") setPos(0);
+    if (e.key === "End") setPos(100);
   };
-  const L1 = `T1 · 2023`;
-  const L2 = `T2 · 2025`;
+  const hi = source === "hires";
+  const L1 = hi ? `2023 · ${WAYBACK.t1.label}` : `T1 · 2023`;
+  const L2 = hi ? `2025 · ${WAYBACK.t2.label}` : `T2 · 2025`;
+  const pic = (side: Side, src: string | null, label: string, d = demo) => <Img src={src} label={label} a={a} demo={d} source={source} side={side} onFail={fail} />;
   const tag = "absolute top-2 z-10 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur";
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
+    <div ref={root} className={cn(fs && "flex flex-col items-center justify-center bg-bg0 p-4")}>
+      <div className={cn(fs && "w-[min(86vh,92vw)]")}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <span className="section-title">{t("compare")}</span>
+        <Segmented
+          size="xs"
+          label={t("img_source")}
+          value={source}
+          onChange={setSource}
+          options={[{ value: "hires", label: t("src_hires") }, { value: "s2", label: t("src_s2") }]}
+        />
+      </div>
+      <div className="mb-2 flex items-center justify-end gap-1.5">
+        <button onClick={toggleFs} className="grid h-7 w-7 place-items-center rounded-md border text-fg2 hover:bg-bg3 hover:text-fg1" aria-label={t("fullscreen")} title={t("fullscreen")}>
+          {fs ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        </button>
         <Segmented
           size="xs"
           label={t("compare")}
@@ -71,14 +132,14 @@ export function BeforeAfter({ a, before, after, demo }: { a: Alert; before: stri
         <div className="grid grid-cols-2 gap-1.5">
           {[[before, L1], [after, L2]].map(([src, l]) => (
             <div key={l} className="relative aspect-square overflow-hidden rounded-xl border">
-              <Img src={src} label={l as string} a={a} demo={demo} />
+              {pic(l === L1 ? "t1" : "t2", src, l as string)}
               <span className={cn(tag, "left-2")}>{l}</span>
             </div>
           ))}
         </div>
       ) : mode === "blink" ? (
         <div className="relative aspect-square overflow-hidden rounded-xl border">
-          <Img src={blinkB ? before : after} label={blinkB ? L1 : L2} a={a} demo={demo} />
+          {pic(blinkB ? "t1" : "t2", blinkB ? before : after, blinkB ? L1 : L2)}
           <span className={cn(tag, "left-2", !blinkB && "bg-accent/80 text-bg0")}>{blinkB ? L1 : L2}</span>
         </div>
       ) : (
@@ -93,9 +154,9 @@ export function BeforeAfter({ a, before, after, demo }: { a: Alert; before: stri
           onPointerMove={move}
           onPointerUp={() => (dragging.current = false)}
         >
-          <Img src={after} label={L2} a={a} demo={demo} />
+          {pic("t2", after, L2)}
           <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
-            <Img src={before} label={L1} a={a} demo={false} />
+            {pic("t1", before, L1, false)}
           </div>
           <span className={cn(tag, "left-2")}>{L1}</span>
           <span className={cn(tag, "right-2")}>{L2}</span>
@@ -114,6 +175,10 @@ export function BeforeAfter({ a, before, after, demo }: { a: Alert; before: stri
           </div>
         </div>
       )}
+      <p className="mt-1.5 text-[10.5px] leading-snug text-fg3">
+        {hi ? (failed ? t("hires_fail") : t("hires_note")) : t("s2_note")}
+      </p>
+      </div>
     </div>
   );
 }

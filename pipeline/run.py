@@ -18,10 +18,23 @@ PERMIT = "no_data"         # no access to the official permit registry
 PERMIT_FACTOR = 1.0
 
 
+def area_factor(area_m2: float) -> float:
+    """0.4 at the smallest detectable object, 1.0 at the largest kept one, log scale in between.
+    (The old log10(area)/4 capped at 10 000 m2, so most alerts got 1.0 and identical scores.)"""
+    lo, hi = math.log10(C.MIN_PIXELS * C.RES * C.RES), math.log10(C.MAX_AREA_M2)
+    x = (math.log10(max(area_m2, 1)) - lo) / (hi - lo)
+    return round(0.4 + 0.6 * min(1.0, max(0.0, x)), 2)
+
+
 def risk(confidence: float, area_m2: float, zone_weight: float) -> tuple[int, dict]:
-    area_factor = round(min(1.0, math.log10(area_m2) / 4), 2)
-    score = round(100 * confidence * zone_weight * area_factor * PERMIT_FACTOR)
-    return score, {"confidence": confidence, "zone_weight": zone_weight, "area_factor": area_factor, "permit_factor": PERMIT_FACTOR}
+    area_factor_ = area_factor(area_m2)
+    score = round(100 * confidence * zone_weight * area_factor_ * PERMIT_FACTOR)
+    return score, {"confidence": confidence, "zone_weight": zone_weight, "area_factor": area_factor_, "permit_factor": PERMIT_FACTOR}
+
+
+def _sampling():
+    from .validate import sampling_summary
+    return sampling_summary()
 
 
 def pending_metrics() -> dict:
@@ -29,6 +42,7 @@ def pending_metrics() -> dict:
     return {
         "is_mock": True,
         "test_points": 0,
+        "sampling": _sampling(),
         "baseline": {"precision": 0, "recall": 0, "f1": 0},
         "ml": {"precision": 0, "recall": 0, "f1": 0, "pr_auc": 0},
         "threshold": 0.5,

@@ -1,5 +1,6 @@
 import { AnimatePresence } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import type { Filters } from "@/api/types";
 import { apiReachable, type DataMode } from "./mode";
 import { useAppState } from "./state";
 import { useBreakpoint } from "./useMedia";
@@ -12,7 +13,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { StatsPage } from "@/pages/StatsPage";
 
 export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnline: boolean }) {
-  const { s, set, setFilters } = useAppState();
+  const { s, set, setFilters, resetFilters } = useAppState();
   const bp = useBreakpoint();
   const [settings, setSettings] = useState(false);
   const [help, setHelp] = useState(false);
@@ -47,6 +48,13 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
     set({ tab: "dashboard", alert: null });
   };
 
+  // chart drill-down: replace the dashboard filters with the clicked selection
+  const openFiltered = (f: Partial<Filters>) => {
+    resetFilters();
+    setFilters(f);
+    set({ tab: "dashboard", alert: null });
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-bg0">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -65,7 +73,7 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
         <main className="flex min-h-0 flex-1 flex-col">
           <AnimatePresence mode="wait" initial={false}>
             {s.tab === "dashboard" && <DashboardPage key="d" searchRef={searchRef} />}
-            {s.tab === "stats" && <StatsPage key="s" onDistrict={goDistrict} />}
+            {s.tab === "stats" && <StatsPage key="s" onOpen={openFiltered} />}
             {s.tab === "accuracy" && <AccuracyPage key="a" />}
           </AnimatePresence>
         </main>

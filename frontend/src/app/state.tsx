@@ -4,7 +4,7 @@ import { EMPTY_FILTERS, type Filters } from "@/api/types";
 
 export type Tab = "dashboard" | "stats" | "accuracy";
 export type QueueTab = "all" | "critical" | "review" | "mine";
-export type SortKey = "risk" | "area" | "new";
+export type SortKey = "risk" | "area" | "new" | "status";
 export type Basemap = "satellite" | "streets" | "dark";
 
 export interface AppState {
@@ -34,7 +34,7 @@ function fromUrl(): AppState {
       q: p.get("q") ?? "",
     },
     queue: (["all", "critical", "review", "mine"] as const).find((x) => x === p.get("queue")) ?? "all",
-    sort: (["risk", "area", "new"] as const).find((x) => x === p.get("sort")) ?? "risk",
+    sort: (["risk", "area", "new", "status"] as const).find((x) => x === p.get("sort")) ?? "risk",
     month: /^\d{4}-\d{2}$/.test(p.get("month") ?? "") ? p.get("month") : null,
     basemap: (["satellite", "streets", "dark"] as const).find((x) => x === p.get("basemap")) ?? "satellite",
     view3d: p.get("mode") === "3d",

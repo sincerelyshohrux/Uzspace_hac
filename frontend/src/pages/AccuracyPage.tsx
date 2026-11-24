@@ -1,4 +1,4 @@
-import { ArrowRight, Brain, Database, FlaskConical, Layers3, ListChecks, Satellite, Target, TrendingUp, Waypoints } from "lucide-react";
+import { ArrowRight, Brain, CheckCircle2, CircleDashed, Database, FlaskConical, Layers3, ListChecks, Satellite, Target, TrendingUp, Waypoints } from "lucide-react";
 import { motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMetrics } from "@/api/hooks";
@@ -6,7 +6,9 @@ import { AXIS, GRID, TOOLTIP } from "@/components/analytics/chartTheme";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KpiCard } from "@/components/analytics/KpiCard";
 import { ErrorState, Skeleton } from "@/components/ui/states";
-import { useI18n } from "@/i18n";
+import type { Metrics } from "@/api/types";
+import { useI18n, type I18nKey } from "@/i18n";
+import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { pageVariants } from "@/lib/motion";
 
@@ -21,6 +23,7 @@ export function AccuracyPage() {
       </div>
     );
   const d = m.data;
+  if (d.test_points === 0) return <PendingAccuracy m={d} />;
   const compare = [
     { name: t("precision"), b: d.baseline.precision, m: d.ml.precision },
     { name: t("recall"), b: d.baseline.recall, m: d.ml.recall },
@@ -87,7 +90,7 @@ export function AccuracyPage() {
         </section>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard title={t("compare_title")} hint={t("compare_hint")} action={<span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-ok/12 px-2 py-1 text-2xs font-semibold text-ok"><Target size={12} /> {t("fp_reduction", { x: fpReduction })}</span>}>
+          <ChartCard title={t("compare_title")} hint={t("compare_hint")} action={fpReduction > 0 && <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-ok/12 px-2 py-1 text-2xs font-semibold text-ok"><Target size={12} /> {t("fp_reduction", { x: fpReduction })}</span>}>
             <div className="h-64">
               <ResponsiveContainer>
                 <BarChart data={compare} margin={{ left: -18, right: 4 }} barGap={4}>
@@ -109,7 +112,7 @@ export function AccuracyPage() {
                 <LineChart data={[...d.pr_curve].sort((a, b) => a.recall - b.recall)} margin={{ left: -18, right: 12, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                   <XAxis dataKey="recall" type="number" domain={[0, 1]} tick={AXIS} axisLine={false} tickLine={false} label={{ value: t("recall"), fontSize: 11, fill: "rgb(148 163 184)", position: "insideBottom", offset: -6 }} />
-                  <YAxis domain={[0.4, 1]} tick={AXIS} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 1]} tick={AXIS} axisLine={false} tickLine={false} />
                   <Tooltip {...TOOLTIP} labelFormatter={(r: number) => `${t("recall")} ${Number(r).toFixed(2)}`} formatter={(v: number, _n, p) => [`${v.toFixed(2)} (thr ${(p.payload as { threshold: number }).threshold})`, t("precision")]} />
                   <Line isAnimationActive={false} dataKey="precision" name={t("precision")} stroke="#22D3EE" strokeWidth={2.5} dot={{ r: 3, fill: "#22D3EE" }} />
                   {sel && <ReferenceDot x={sel.recall} y={sel.precision} r={7} fill="#EF4444" stroke="#fff" strokeWidth={2} />}
@@ -174,6 +177,116 @@ export function AccuracyPage() {
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-risk-mid" />
                   {l}
                 </li>
+              ))}
+            </ul>
+          </ChartCard>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Shown until the team has labelled the validation sample: method, status, no numbers. */
+function PendingAccuracy({ m }: { m: Metrics }) {
+  const { t } = useI18n();
+  const limitations = m.limitations;
+  const strata = m.sampling ?? [];
+  const totalPx = strata.reduce((s, x) => s + x.pixels, 0);
+  const totalPts = strata.reduce((s, x) => s + x.points, 0);
+  const steps: [boolean, string, string][] = [
+    [true, t("acc_s1"), t("acc_s1d")],
+    [true, t("acc_s2"), t("acc_s2d")],
+    [false, t("acc_s3"), t("acc_s3d")],
+    [false, t("acc_s4"), t("acc_s4d")],
+  ];
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-[1100px] space-y-4 p-4 md:p-6">
+        <div>
+          <h2 className="text-lg font-semibold">{t("nav_accuracy")}</h2>
+          <p className="text-xs text-fg2">{t("acc_pending_sub")}</p>
+        </div>
+        <div className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5 text-sm">
+          <FlaskConical size={16} className="mt-0.5 shrink-0 text-amber-400" />
+          <span className="text-fg1">{t("acc_pending_body")}</span>
+        </div>
+        <section className="card p-4">
+          <h3 className="mb-3 text-sm font-semibold">{t("acc_method")}</h3>
+          <ol className="grid gap-2 md:grid-cols-2">
+            {steps.map(([done, title, desc]) => (
+              <li key={title} className="flex gap-3 rounded-xl border bg-bg2 p-3">
+                {done ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-ok" /> : <CircleDashed size={18} className="mt-0.5 shrink-0 text-fg3" />}
+                <div>
+                  <div className="text-[13px] font-semibold">{title}</div>
+                  <div className="text-2xs text-fg2">{desc}</div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+        {strata.length > 0 && (
+          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+            <ChartCard title={t("acc_sample")} hint={t("acc_sample_hint")}>
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="text-left text-2xs uppercase tracking-wide text-fg3">
+                    <th className="pb-2 font-medium">{t("acc_stratum")}</th>
+                    <th className="pb-2 text-right font-medium">{t("acc_px")}</th>
+                    <th className="pb-2 pl-3 font-medium" />
+                    <th className="pb-2 text-right font-medium">{t("acc_points")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line/10">
+                  {strata.map((x) => {
+                    const share = x.pixels / totalPx;
+                    return (
+                      <tr key={x.stratum}>
+                        <td className="py-2">{t(`acc_s_${x.stratum}` as I18nKey)}</td>
+                        <td className="tnum py-2 text-right text-fg2">{fmtInt(x.pixels / 100)} {t("ha")}</td>
+                        <td className="w-[30%] py-2 pl-3">
+                          <span className="flex items-center gap-2">
+                            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg3"><span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(1, share * 100)}%` }} /></span>
+                            <span className="tnum w-9 text-right text-2xs text-fg2">{(share * 100).toFixed(1)}%</span>
+                          </span>
+                        </td>
+                        <td className="tnum py-2 text-right font-semibold">{x.points}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="font-semibold">
+                    <td className="py-2">Σ</td>
+                    <td className="tnum py-2 text-right">{fmtInt(totalPx / 100)} {t("ha")}</td>
+                    <td />
+                    <td className="tnum py-2 text-right">{totalPts}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </ChartCard>
+            <ChartCard title={t("acc_progress")}>
+              <div className="flex items-baseline gap-1.5">
+                <span className="tnum text-3xl font-semibold">{m.labelled?.usable ?? 0}</span>
+                <span className="tnum text-sm text-fg2">/ {m.labelled?.total ?? totalPts}</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg3">
+                <div className="h-full rounded-full bg-accent" style={{ width: `${((m.labelled?.usable ?? 0) / Math.max(1, m.labelled?.total ?? totalPts)) * 100}%` }} />
+              </div>
+              <p className="mt-3 text-xs text-fg2">{t("acc_progress_body", { n: totalPts })}</p>
+              <p className="mt-1.5 text-xs text-fg3">{t("acc_need")}</p>
+            </ChartCard>
+          </div>
+        )}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartCard title={t("acc_compare_what")}>
+            <ul className="space-y-2 text-[13px]">
+              {(["acc_c1", "acc_c2", "acc_c3"] as const).map((k) => (
+                <li key={k} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />{t(k)}</li>
+              ))}
+            </ul>
+          </ChartCard>
+          <ChartCard title={t("limitations")}>
+            <ul className="space-y-2 text-[13px] text-fg1">
+              {limitations.map((l) => (
+                <li key={l} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-risk-mid" />{l}</li>
               ))}
             </ul>
           </ChartCard>
