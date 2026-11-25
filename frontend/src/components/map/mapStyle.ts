@@ -1,4 +1,5 @@
 import type { StyleSpecification } from "maplibre-gl";
+import { WAYBACK, waybackTemplate } from "@/lib/wayback";
 
 export const TASHKENT: [number, number] = [69.262, 41.292];
 export const START_ZOOM = 10.6;
@@ -24,6 +25,13 @@ export function baseStyle(): StyleSpecification {
         tileSize: 256,
         maxzoom: 19,
       },
+      wb2: {
+        type: "raster",
+        tiles: [waybackTemplate(WAYBACK.t2.release)],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: "Esri World Imagery Wayback",
+      },
       osm: {
         type: "raster",
         tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
@@ -35,6 +43,7 @@ export function baseStyle(): StyleSpecification {
     layers: [
       { id: "bg", type: "background", paint: { "background-color": "#070B14" } },
       { id: "base-sat", type: "raster", source: "sat", paint: { "raster-saturation": -0.15, "raster-contrast": 0.05 } },
+      { id: "base-wb2", type: "raster", source: "wb2", layout: { visibility: "none" } },
       { id: "base-sat-labels", type: "raster", source: "satLabels", paint: { "raster-opacity": 0.75 } },
       { id: "base-streets", type: "raster", source: "osm", layout: { visibility: "none" }, paint: { "raster-saturation": -0.3 } },
       {

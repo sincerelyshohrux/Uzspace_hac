@@ -106,6 +106,52 @@ class Store:
         if self.meta.get("is_mock"):
             self._seed_demo_activity()
 
+    # ---- Labelled demo activity (users "demo.*"), so empty workflow screens can be shown and then removed
+    DEMO_PREFIX = "demo."
+
+    def demo_count(self) -> int:
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM audit_log WHERE user LIKE 'demo.%'").fetchone()[0]
+
+    def demo_seed(self, rows: list[dict]) -> int:
+        """Insert demo audit rows (oldest first). Only users starting with "demo." are accepted."""
+        n = 0
+        with self._lock, self._conn() as c:
+            for r in sorted(rows, key=lambda r: r["ts"]):
+                if r["alert_id"] not in self.alerts or not str(r["user"]).startswith(self.DEMO_PREFIX):
+                    continue
+                cur = c.execute("SELECT status FROM alert_status WHERE alert_id=?", (r["alert_id"],)).fetchone()
+                c.execute(
+                    "INSERT INTO audit_log(alert_id, old_status, new_status, note, user, ts) VALUES(?,?,?,?,?,?)",
+                    (r["alert_id"], cur["status"] if cur else "new", r["new_status"], r.get("note"), r["user"], r["ts"]),
+                )
+                c.execute(
+                    "INSERT INTO alert_status(alert_id, status, note, updated_at, user) VALUES(?,?,?,?,?) "
+                    "ON CONFLICT(alert_id) DO UPDATE SET status=excluded.status, note=excluded.note, "
+                    "updated_at=excluded.updated_at, user=excluded.user",
+                    (r["alert_id"], r["new_status"], r.get("note"), r["ts"], r["user"]),
+                )
+                n += 1
+        return n
+
+    def demo_clear(self) -> int:
+        """Remove demo rows; each touched alert falls back to its last real action (or "new")."""
+        with self._lock, self._conn() as c:
+            ids = [r[0] for r in c.execute("SELECT DISTINCT alert_id FROM audit_log WHERE user LIKE 'demo.%'")]
+            n = c.execute("DELETE FROM audit_log WHERE user LIKE 'demo.%'").rowcount
+            for aid in ids:
+                last = c.execute(
+                    "SELECT new_status, note, ts, user FROM audit_log WHERE alert_id=? ORDER BY id DESC LIMIT 1", (aid,)
+                ).fetchone()
+                if last is None:
+                    c.execute("DELETE FROM alert_status WHERE alert_id=?", (aid,))
+                else:
+                    c.execute(
+                        "UPDATE alert_status SET status=?, note=?, updated_at=?, user=? WHERE alert_id=?",
+                        (last["new_status"], last["note"], last["ts"], last["user"], aid),
+                    )
+        return n
+
     def _statuses(self) -> dict[str, sqlite3.Row]:
         with self._conn() as c:
             return {r["alert_id"]: r for r in c.execute("SELECT * FROM alert_status")}

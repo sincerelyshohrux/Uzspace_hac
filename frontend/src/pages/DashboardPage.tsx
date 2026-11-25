@@ -14,7 +14,9 @@ import { MapView, type MapHandle } from "@/components/map/MapView";
 import { TimelineBar } from "@/components/map/TimelineBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, SheetContent } from "@/components/ui/dialog";
+import { BottomSheet, type Snap } from "@/components/layout/BottomSheet";
 import { spring } from "@/lib/motion";
+import { WAYBACK } from "@/lib/wayback";
 import { useI18n } from "@/i18n";
 
 const QW = 360; // queue width
@@ -35,6 +37,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
   const [layers, setLayersState] = useState<LayerPrefs>(loadLayers);
   const [queueOpen, setQueueOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // user-collapsed alert list (desktop)
+  const [sheet, setSheet] = useState<Snap>(() => (s.alert ? "half" : "peek")); // mobile sheet
   const setLayers = (l: LayerPrefs) => {
     setLayersState(l);
     saveLayers(l);
@@ -68,6 +71,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     return sorted;
   }, [capped, s.queue, s.sort, mine]);
 
+  const topId = useMemo(() => capped.reduce<Alert | null>((b, a) => (!b || a.risk_score > b.risk_score ? a : b), null)?.alert_id, [capped]);
   const idx = items.findIndex((a) => a.alert_id === s.alert);
   const prev = idx > 0 ? () => select(items[idx - 1].alert_id) : undefined;
   const next = idx >= 0 && idx < items.length - 1 ? () => select(items[idx + 1].alert_id) : undefined;
@@ -75,7 +79,10 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
   const onSelect = useCallback(
     (id: string | null) => {
       select(id);
-      if (id) setQueueOpen(false);
+      if (id) {
+        setQueueOpen(false);
+        setSheet((v) => (v === "peek" ? "half" : v));
+      }
     },
     [select],
   );
@@ -96,7 +103,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     top: 70,
     left: docked ? QW + GAP * 2 : 20,
     right: detailDocked ? DW + GAP * 2 : 60,
-    bottom: bp.lg ? 170 : bp.md ? 110 : 90,
+    bottom: bp.lg ? 170 : bp.md ? 110 : sheet === "peek" ? 150 : sheet === "half" ? Math.round(innerHeight * 0.45) : 90,
   };
 
   const queue = (
@@ -119,6 +126,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
       onSelect={onSelect}
       onHover={setHovered}
       searchRef={bp.xl ? undefined : searchRef}
+      topId={topId}
       className="h-full"
     />
   );
@@ -142,30 +150,28 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
       padding={padding}
       reducedMotion={reduce}
       activeDistrict={s.filters.district}
+      compare={s.compare}
+      compareLabels={{ left: `2023 · ${WAYBACK.t1.label}`, right: `2025 · ${WAYBACK.t2.label}`, hint: t("cmp_hint") }}
     />
   );
   const controls = (
-    <MapControls map={mapRef} basemap={s.basemap} onBasemap={(b) => set({ basemap: b })} view3d={s.view3d} on3d={(v) => set({ view3d: v })} layers={layers} onLayers={setLayers} />
+    <MapControls map={mapRef} basemap={s.basemap} onBasemap={(b) => set({ basemap: b })} view3d={s.view3d} on3d={(v) => set({ view3d: v })} layers={layers} onLayers={setLayers} compare={s.compare} onCompare={(v) => set({ compare: v })} />
   );
 
-  // Mobile: map on top, list below, detail as a bottom sheet
+  // Mobile: full-screen map with a draggable sheet (list, or the selected alert)
   if (!bp.md) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="relative h-[45vh] shrink-0 overflow-hidden">
-          {map}
-          <div className="absolute right-2 top-2 z-10">{controls}</div>
-          <div className="absolute inset-x-2 bottom-2 z-10">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {map}
+        <div className="absolute right-2 top-2 z-10">{controls}</div>
+        {sheet === "peek" && (
+          <div className="absolute inset-x-2 z-10" style={{ bottom: 140 }}>
             <TimelineBar alerts={q.data?.items ?? []} month={s.month} onMonth={(m) => set({ month: m })} />
           </div>
-        </div>
-        <div className="min-h-0 flex-1 bg-bg1">{queue}</div>
-        <Dialog open={!!s.alert} onOpenChange={(o) => !o && close()}>
-          <SheetContent side="bottom" title={s.alert ?? ""} className="h-[88vh]">
-            <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-fg3/40" />
-            {detail}
-          </SheetContent>
-        </Dialog>
+        )}
+        <BottomSheet snap={sheet} onSnap={setSheet} label={s.alert ?? t("alerts_n", { n: items.length })}>
+          {detail ?? queue}
+        </BottomSheet>
       </div>
     );
   }

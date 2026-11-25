@@ -1,4 +1,7 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from .. import config
 from ..deps import get_store
@@ -48,3 +51,29 @@ def reload(store: Store = Depends(get_store)):
 def reset(store: Store = Depends(get_store)):
     store.reset_activity()
     return {"ok": True}
+
+
+class DemoRow(BaseModel):
+    alert_id: str
+    new_status: str
+    note: Optional[str] = None
+    user: str
+    ts: str
+
+
+@router.get("/demo/activity")
+def demo_activity(store: Store = Depends(get_store)):
+    return {"rows": store.demo_count()}
+
+
+@router.post("/demo/activity", dependencies=[Depends(_admin)])
+def demo_seed(rows: list[DemoRow], store: Store = Depends(get_store)):
+    for r in rows:
+        if r.new_status not in ("new", "in_review", "confirmed", "false_positive"):
+            raise HTTPException(422, f"bad status {r.new_status}")
+    return {"rows": store.demo_seed([r.model_dump() for r in rows])}
+
+
+@router.delete("/demo/activity", dependencies=[Depends(_admin)])
+def demo_clear(store: Store = Depends(get_store)):
+    return {"removed": store.demo_clear()}

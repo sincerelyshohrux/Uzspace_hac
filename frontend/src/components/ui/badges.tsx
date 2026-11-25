@@ -10,11 +10,25 @@ const RISK_CLS = {
   low: "bg-risk-low/15 text-risk-low ring-risk-low/30",
 };
 
+const RISK_VAR = { high: "--risk-high", mid: "--risk-mid", low: "--risk-low" };
+const RISK_FLOOR = { high: 60, mid: 30, low: 0 };
+
+/** Score tile. Fill strength ramps with the score inside its level, so 98 and 62 no longer look alike. */
 export function RiskTile({ score, className }: { score: number; className?: string }) {
   const { t } = useI18n();
   const lvl = riskLevel(score);
+  const span = lvl === "low" ? 30 : lvl === "mid" ? 30 : 40;
+  const k = Math.min(1, Math.max(0, (score - RISK_FLOOR[lvl]) / span));
+  const solid = score >= 90;
   return (
-    <div className={cn("flex w-11 shrink-0 flex-col items-center justify-center rounded-lg py-1 ring-1 ring-inset", RISK_CLS[lvl], className)} aria-label={`Risk ${score}, ${t(`lvl_${lvl}`)}`}>
+    <div
+      className={cn("flex w-11 shrink-0 flex-col items-center justify-center rounded-lg py-1 ring-1 ring-inset", solid ? "text-white ring-white/20" : RISK_CLS[lvl], className)}
+      style={{
+        backgroundColor: solid ? `rgb(var(${RISK_VAR[lvl]}))` : `rgb(var(${RISK_VAR[lvl]}) / ${(0.07 + k * 0.2).toFixed(2)})`,
+        boxShadow: solid ? `0 0 14px rgb(var(${RISK_VAR[lvl]}) / .45)` : undefined,
+      }}
+      aria-label={`Risk ${score}, ${t(`lvl_${lvl}`)}`}
+    >
       <span className="tnum text-base font-bold leading-none">{Math.round(score)}</span>
       <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide opacity-90">{t(`lvl_${lvl}`)}</span>
     </div>

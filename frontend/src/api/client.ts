@@ -1,4 +1,5 @@
 import { getMode } from "@/app/mode";
+import type { DemoRow } from "@/lib/demoActivity";
 import { demoApi } from "./demoServer";
 import type {
   Alert, AlertList, AlertUpdate, AuditEntry, DistrictLayer, DistrictStat, Filters, InspectorStat,
@@ -58,6 +59,10 @@ export const api = {
   districts: (): Promise<DistrictStat[]> => (demo() ? demoApi.districts() : http("/api/stats/districts")),
   timeline: (): Promise<TimelinePoint[]> => (demo() ? demoApi.timeline() : http("/api/stats/timeline")),
   inspectors: (): Promise<InspectorStat[]> => (demo() ? demoApi.inspectors() : http("/api/stats/inspectors")),
+  demoActivity: (): Promise<{ rows: number }> => (demo() ? demoApi.demoActivity() : http("/api/demo/activity")),
+  demoSeed: (rows: DemoRow[]): Promise<{ rows: number }> =>
+    demo() ? demoApi.demoSeed(rows) : http("/api/demo/activity", { method: "POST", body: JSON.stringify(rows) }),
+  demoClear: (): Promise<{ removed: number }> => (demo() ? demoApi.demoClear() : http("/api/demo/activity", { method: "DELETE" })),
   reset: (): Promise<unknown> => (demo() ? demoApi.reset() : http("/api/admin/reset", { method: "POST" })),
 };
 

@@ -73,8 +73,8 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
       if (e.key === "1") document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="1"]')?.click();
       if (e.key === "2") document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="2"]')?.click();
       if (e.key === "3") document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="3"]')?.click();
-      if (e.key === "]" && onNext) onNext();
-      if (e.key === "[" && onPrev) onPrev();
+      if ((e.key === "]" || e.key === "j" || e.key === "J") && onNext) onNext();
+      if ((e.key === "[" || e.key === "k" || e.key === "K") && onPrev) onPrev();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -111,7 +111,7 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-start gap-2 px-4 pb-3 pt-4">
+      <div className="sticky top-0 z-10 flex items-start gap-2 border-b border-line/10 px-4 pb-3 pt-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate font-mono text-[15px] font-semibold">{a.alert_id}</h2>
@@ -126,8 +126,8 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
         </div>
         <div className="flex items-center gap-0.5">
           {position && <span className="tnum mr-1 hidden text-2xs text-fg3 sm:inline">{position}</span>}
-          <Tip label={t("prev")} kbd="["><Button variant="ghost" size="icon-sm" onClick={onPrev} disabled={!onPrev} aria-label={t("prev")}><ChevronLeft size={16} /></Button></Tip>
-          <Tip label={t("next")} kbd="]"><Button variant="ghost" size="icon-sm" onClick={onNext} disabled={!onNext} aria-label={t("next")}><ChevronRight size={16} /></Button></Tip>
+          <Tip label={t("prev")} kbd="K"><Button variant="ghost" size="icon-sm" onClick={onPrev} disabled={!onPrev} aria-label={t("prev")}><ChevronLeft size={16} /></Button></Tip>
+          <Tip label={t("next")} kbd="J"><Button variant="ghost" size="icon-sm" onClick={onNext} disabled={!onNext} aria-label={t("next")}><ChevronRight size={16} /></Button></Tip>
           <Tip label={t("close")} kbd="Esc"><Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t("close")}><X size={16} /></Button></Tip>
         </div>
       </div>
@@ -141,8 +141,8 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
               [t("started"), fmtMonth(a.start_month, lang, true), "text-fg1"],
               [t("area"), `${fmtArea(a.area_m2)}`, "text-fg1"],
             ].map(([l, v, c]) => (
-              <div key={l} className="px-2.5">
-                <div className="hud-label truncate">{l}</div>
+              <div key={l} className="min-w-0 px-2.5">
+                <div className="hud-label leading-snug [overflow-wrap:anywhere]" title={l}>{l}</div>
                 <div className={cn("tnum mt-0.5 truncate text-[13px] font-semibold", c)}>{v}</div>
               </div>
             ))}

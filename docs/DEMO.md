@@ -34,8 +34,10 @@ va nima aytiladi. Raqamlar `outputs/` dagi haqiqiy natijadan olingan (Sentinel-2
 **30 daqiqa oldin**
 - [ ] `make demo-reset`: oldingi sinovlardagi holat va izohlarni tozalash (alertlar saqlanadi).
 - [ ] `make dev` ni ishga tushirib, http://localhost:5173 ni ochish.
-- [ ] **TSH-2025-0003** ni bir marta ochish: yuqori aniqlikdagi rasmlar keshga tushadi.
+- [ ] **TSH-2025-0003** ni ochib, `C` bilan taqqoslash rejimini yoqib-o'chirish: 2023 va 2025 rasmlari keshga tushadi.
 - [ ] Brauzerda faqat bitta tab qoldirish, bildirishnomalarni o'chirish.
+- [ ] Ixtiyoriy: Sozlamalar → **DEMO inspektor faoliyati** ni yoqish. Tekshiruv navbati va inspektorlar jadvali to'ladi, tepada sariq **DEMO FAOLIYAT** belgisi chiqadi. Hakamlarga buni namunaviy ma'lumot deb aytish; model aniqligiga ta'sir qilmaydi. Taqdimotdan keyin o'chirish.
+- [ ] Tezkor o'tish: `⌘K` (Windows'da `Ctrl+K`) orqali alert, tuman yoki buyruqni topish; alertlar orasida `J` / `K`.
 - [ ] Til: hakamlar o'zbekcha bo'lsa **UZ**, xorijiy hakam bo'lsa **EN** (tepada almashtiriladi).
 
 ---
@@ -62,10 +64,16 @@ va nima aytiladi. Raqamlar `outputs/` dagi haqiqiy natijadan olingan (Sentinel-2
 ### 1:15 — Nega bu yer? (1 min 30 s) · *Abdukarim*
 **Bosiladi:** ro'yxatdan **TSH-2025-0003** (Sergeli, ball 98). Xarita shu joyga uchib boradi.
 
-**Oldin/Keyin:** "Yuqori aniqlik" tanlangan. Slayderni sekin chapdan o'ngga suring.
+**Bosiladi:** xarita tepasidagi **2023 ↔ 2025** tugmasi (yoki klaviaturada `C`). Xarita ustida chiziqni
+sekin chapdan o'ngga suring: chapda 2023, o'ngda 2025.
 
 > "2023 yilda bu yerda dala edi. 2025 yilda — taxminan 14,7 gektarlik yangi bino va maydon.
 > Muhimi: bu obyekt **elektr uzatish liniyasining qo'riqlash zonasi** bilan kesishadi."
+
+**Effekt uchun:** chiziqni ushlab turib xaritani biroz suring yoki kichiklashtiring: atrofdagi boshqa
+yangi qurilishlar ham ko'rinadi. Keyin `C` bilan rejimni o'chiring.
+
+**Panelda:** o'ngdagi Oldin/Keyin slayderi shu joyni yaqindan ko'rsatadi.
 
 **Bosiladi:** "Sentinel-2" tugmasi.
 
@@ -115,7 +123,7 @@ va nima aytiladi. Raqamlar `outputs/` dagi haqiqiy natijadan olingan (Sentinel-2
 
 1. Muammo (20 s).
 2. Xarita: 250 ta o'zgarish, yarmi zonada (30 s).
-3. **TSH-2025-0003**: Oldin/Keyin slayder, elektr liniyasi zonasi, ball izohi (1 min 10 s).
+3. **TSH-2025-0003**: xaritada 2023 ↔ 2025 chizig'i, elektr liniyasi zonasi, ball izohi (1 min 10 s).
 4. Holatni "Tekshiruvda" ga o'tkazish va PDF (40 s).
 5. Model aniqligi: halol baholash rejasi va keyingi qadam (20 s).
 

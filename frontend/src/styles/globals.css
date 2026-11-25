@@ -9,11 +9,11 @@
   --bg-2: 248 250 252;
   --bg-3: 236 240 246;
   --line: 15 23 42;
-  --line-a: 0.09;
+  --line-a: 0.14;
   --line-strong: 15 23 42;
   --fg-1: 15 23 42;
-  --fg-2: 71 85 105;
-  --fg-3: 100 116 139;
+  --fg-2: 51 65 85;
+  --fg-3: 87 101 122;
   --accent: 8 145 178;
   --accent-2: 37 99 235;
   --risk-high: 220 38 38;
@@ -25,9 +25,12 @@
   --st-confirmed: 147 51 234;
   --st-fp: 71 85 105;
   --glass: 255 255 255;
-  --glass-a: 0.82;
-  --shadow-a: 0.12;
+  --glass-a: 0.95;
+  --shadow-a: 0.14;
   --glow-a: 0;
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
   color-scheme: light;
 }
 .dark {
@@ -39,8 +42,8 @@
   --line-a: 0.13;
   --line-strong: 148 197 255;
   --fg-1: 234 242 255;
-  --fg-2: 150 170 198;
-  --fg-3: 98 117 146;
+  --fg-2: 156 176 204;
+  --fg-3: 116 136 166;
   --accent: 34 211 238;
   --accent-2: 59 130 246;
   --risk-high: 248 82 82;
@@ -89,6 +92,7 @@
       0 12px 40px rgb(0 0 0 / var(--shadow-a)),
       0 0 32px rgb(var(--accent) / calc(var(--glow-a) * 0.6));
   }
+  :root:not(.dark) .glass { border-color: rgb(15 23 42 / 0.14); }
   .card {
     @apply rounded-2xl border bg-bg1;
     background-image: linear-gradient(180deg, rgb(var(--accent) / calc(var(--glow-a) * 0.35)), transparent 40%);

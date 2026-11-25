@@ -13,6 +13,10 @@ const R = 156543.03392; // metres per pixel at zoom 0, equator
 export const waybackUrl = (release: number, z: number, x: number, y: number) =>
   `https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/${release}/${z}/${y}/${x}`;
 
+/** MapLibre raster tile template for one release. */
+export const waybackTemplate = (release: number) =>
+  `https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/${release}/{z}/{y}/{x}`;
+
 export interface TileSpec { key: string; src: string; left: number; top: number; size: number }
 
 /**

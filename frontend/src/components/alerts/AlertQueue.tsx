@@ -1,10 +1,11 @@
 import { AnimatePresence } from "motion/react";
-import { ArrowDownUp, Download, Search, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import { ArrowDownUp, ClipboardCheck, Download, Flame, Search, SlidersHorizontal, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import type { Alert, Filters } from "@/api/types";
 import { exportUrl } from "@/api/client";
-import type { QueueTab, SortKey } from "@/app/state";
+import { useBulkUpdate } from "@/api/hooks";
+import { addMine, CURRENT_USER, type QueueTab, type SortKey } from "@/app/state";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Segmented } from "@/components/ui/segmented";
@@ -36,6 +37,8 @@ interface Props {
   onHover: (id: string | null) => void;
   searchRef?: React.RefObject<HTMLInputElement>;
   className?: string;
+  /** highest-risk alert overall, offered from empty states */
+  topId?: string;
 }
 
 export function AlertQueue(p: Props) {
@@ -48,6 +51,44 @@ export function AlertQueue(p: Props) {
       return () => clearTimeout(id);
     }
   }, [p.loading]);
+
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const bulk = useBulkUpdate();
+  // drop selections that left the list (filters changed)
+  useEffect(() => {
+    setChecked((c) => {
+      const ids = new Set(p.items.map((a) => a.alert_id));
+      const next = new Set([...c].filter((id) => ids.has(id)));
+      return next.size === c.size ? c : next;
+    });
+  }, [p.items]);
+  const toggle = (id: string, v: boolean) =>
+    setChecked((c) => {
+      const n = new Set(c);
+      if (v) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+  const takeIntoReview = () => {
+    const rows = p.items.filter((a) => checked.has(a.alert_id) && a.status !== "in_review");
+    if (!rows.length) return setChecked(new Set());
+    const prev = rows.map((a) => ({ id: a.alert_id, body: { status: a.status, note: a.note, user: CURRENT_USER } }));
+    bulk.mutate(
+      rows.map((a) => ({ id: a.alert_id, body: { status: "in_review" as const, note: a.note, user: CURRENT_USER } })),
+      {
+        onSuccess: () => {
+          rows.forEach((a) => addMine(a.alert_id));
+          setChecked(new Set());
+          toast.success(t("bulk_done", { n: rows.length }), {
+            description: t("st_in_review"),
+            action: { label: t("undo"), onClick: () => bulk.mutate(prev, { onSuccess: () => toast(t("undone")) }) },
+            duration: 8000,
+          });
+        },
+        onError: (e) => toast.error(t("save_failed", { e: e instanceof Error ? e.message : String(e) })),
+      },
+    );
+  };
 
   useEffect(() => {
     if (p.selected) document.getElementById(`row-${p.selected}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -65,6 +106,10 @@ export function AlertQueue(p: Props) {
   }, [p.filters, t]);
 
   const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && checked.size) {
+      e.stopPropagation();
+      return setChecked(new Set());
+    }
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
     const i = p.items.findIndex((a) => a.alert_id === p.selected);
@@ -87,7 +132,7 @@ export function AlertQueue(p: Props) {
         <Segmented
           label="Queue"
           size="xs"
-          className="w-full"
+          className="flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           value={p.queue}
           onChange={p.onQueue}
           options={[
@@ -167,7 +212,23 @@ export function AlertQueue(p: Props) {
             {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-[76px]" />)}
           </div>
         ) : p.items.length === 0 ? (
-          <EmptyState title={t("empty_title")} body={t("empty_body")} action={<Button size="sm" onClick={p.onReset}>{t("reset")}</Button>} />
+          p.queue === "review" || p.queue === "mine" || p.queue === "critical" ? (
+            <EmptyState
+              icon={p.queue === "review" ? ClipboardCheck : p.queue === "mine" ? UserRound : Flame}
+              title={t(`eq_${p.queue}_title`)}
+              body={t(`eq_${p.queue}_body`)}
+              action={
+                p.topId && p.queue !== "critical" ? (
+                  <Button size="sm" variant="primary" onClick={() => { p.onQueue("all"); p.onSelect(p.topId!); }}>{t("start_top")}</Button>
+                ) : (
+                  <Button size="sm" onClick={() => p.onQueue("all")}>{t("q_all")}</Button>
+                )
+              }
+              hint={p.queue === "review" ? <span>{t("eq_hint_pre")} <span className="kbd">1</span> {t("eq_hint_post")}</span> : undefined}
+            />
+          ) : (
+            <EmptyState title={t("empty_title")} body={t("empty_body")} action={<Button size="sm" onClick={p.onReset}>{t("reset")}</Button>} />
+          )
         ) : (
           <ul ref={listRef} role="listbox" aria-label="Alerts" tabIndex={0} className="space-y-1 outline-none">
             <AnimatePresence initial={false}>
@@ -181,6 +242,9 @@ export function AlertQueue(p: Props) {
                   hovered={a.alert_id === p.hovered}
                   onSelect={() => p.onSelect(a.alert_id)}
                   onHover={(h) => p.onHover(h ? a.alert_id : null)}
+                  checked={checked.has(a.alert_id)}
+                  selecting={checked.size > 0}
+                  onCheck={(v) => toggle(a.alert_id, v)}
                 />
               ))}
             </AnimatePresence>
@@ -188,6 +252,17 @@ export function AlertQueue(p: Props) {
         )}
       </div>
 
+      {checked.size > 0 ? (
+        <div className="flex items-center gap-1.5 border-t border-accent2/30 bg-accent2/[.07] px-2.5 py-2 text-xs">
+          <Tip label={t("cancel")} kbd="Esc">
+            <Button variant="ghost" size="icon-sm" onClick={() => setChecked(new Set())} aria-label={t("cancel")}><X size={15} /></Button>
+          </Tip>
+          <span className="tnum mr-auto whitespace-nowrap font-semibold text-fg1">{t("n_selected", { n: checked.size })}</span>
+          <Button variant="primary" size="sm" className="whitespace-nowrap" onClick={takeIntoReview} disabled={bulk.isPending}>
+            <ClipboardCheck size={13} /> {t("a_review")}
+          </Button>
+        </div>
+      ) : (
       <div className="flex items-center justify-between border-t border-line/10 px-3 py-2 text-xs text-fg2">
         <span className="tnum">
           <b className="font-semibold text-fg1">{p.items.length}</b> · {fmtHa(area)} {t("ha")}
@@ -196,6 +271,7 @@ export function AlertQueue(p: Props) {
           <Download size={13} /> {t("export_csv")}
         </Button>
       </div>
+      )}
     </section>
   );
 }

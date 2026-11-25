@@ -4,6 +4,7 @@ import type {
   Alert, AlertList, AlertUpdate, AuditEntry, DistrictLayer, DistrictStat, Filters, InspectorStat,
   Meta, Metrics, Summary, TimelinePoint, TimeseriesPoint, ZoneLayer,
 } from "./types";
+import type { DemoRow } from "@/lib/demoActivity";
 
 const KEY = "ss-demo-state-v2";
 const BASE = `${import.meta.env.BASE_URL}demo/`;
@@ -156,6 +157,33 @@ export const demoApi = {
       by.set(e.user, s);
     }
     return latency([...by.values()].map(({ ids, ...s }) => ({ ...s, reviewed: ids.size })).sort((a, b) => b.reviewed - a.reviewed));
+  },
+  demoActivity: async () => latency({ rows: (await getState()).audit.filter((e) => e.user.startsWith("demo.")).length }),
+  demoSeed: async (rows: DemoRow[]) => {
+    const st = await getState();
+    let n = 0;
+    for (const r of rows) {
+      if (!r.user.startsWith("demo.")) continue;
+      const old = st.statuses[r.alert_id]?.status ?? "new";
+      st.audit.push({ id: (st.audit.at(-1)?.id ?? 0) + 1, alert_id: r.alert_id, old_status: old, new_status: r.new_status, note: r.note, user: r.user, ts: r.ts });
+      st.statuses[r.alert_id] = { status: r.new_status, note: r.note, updated_at: r.ts, user: r.user };
+      n++;
+    }
+    save();
+    return latency({ rows: n });
+  },
+  demoClear: async () => {
+    const st = await getState();
+    const touched = new Set(st.audit.filter((e) => e.user.startsWith("demo.")).map((e) => e.alert_id));
+    const before = st.audit.length;
+    st.audit = st.audit.filter((e) => !e.user.startsWith("demo."));
+    for (const id of touched) {
+      const last = st.audit.filter((e) => e.alert_id === id).at(-1);
+      if (last) st.statuses[id] = { status: last.new_status, note: last.note, updated_at: last.ts, user: last.user };
+      else delete st.statuses[id];
+    }
+    save();
+    return latency({ removed: before - st.audit.length });
   },
   reset: async () => {
     try {

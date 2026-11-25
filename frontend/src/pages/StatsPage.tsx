@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, Download, Layers, MapPinned, MousePointerClick, Ruler, X } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Download, Layers, Lightbulb, MapPinned, MousePointerClick, Ruler, UsersRound, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/states";
 import { useI18n, type I18nKey } from "@/i18n";
 import { downloadText, fmtDateTime, fmtHa, fmtMonth, RISK_HEX, riskLevel, STATUS_HEX, toCsv, ZONE_HEX } from "@/lib/format";
+import { isDemoUser } from "@/lib/demoActivity";
 import { pageVariants } from "@/lib/motion";
 
 type Scope = { district: string; zone: string; status: string };
@@ -108,6 +109,28 @@ export function StatsPage({ onOpen }: { onOpen: (f: Partial<Filters>) => void })
   }, [items]);
   const maxReviewed = Math.max(1, ...(ins.data ?? []).map((x) => x.reviewed));
 
+  // Plain-language findings computed from the same alerts as the charts (no model claims)
+  const insights = useMemo(() => {
+    const out: { text: string; go: Partial<Filters> }[] = [];
+    const high = items.filter((a) => riskLevel(a.risk_score) === "high");
+    if (high.length >= 4) {
+      const by = new Map<string, number>();
+      high.forEach((a) => by.set(a.district, (by.get(a.district) ?? 0) + 1));
+      const top = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2);
+      const pct = Math.round(((top[0][1] + (top[1]?.[1] ?? 0)) / high.length) * 100);
+      out.push({ text: t("ins_high", { a: top[0][0], b: top[1]?.[0] ?? "", p: pct, n: high.length }), go: { district: top[0][0], minRisk: 60 } });
+    }
+    if (zoneData.length) {
+      out.push({ text: t("ins_zone", { p: k.restrictedPct, z: zoneData[0].name, n: zoneData[0].count }), go: { zone: zoneData[0].zone } });
+    }
+    if (byMonth.length) {
+      const peak = [...byMonth].sort((a, b) => b.count - a.count)[0];
+      const big = [...items].sort((a, b) => b.area_m2 - a.area_m2)[0];
+      out.push({ text: t("ins_peak", { m: fmtMonth(peak.month, lang), n: peak.count, ha: fmtHa(big.area_m2 / 1e4), id: big.alert_id }), go: { q: big.alert_id } });
+    }
+    return out;
+  }, [items, zoneData, byMonth, k.restrictedPct, t, lang]);
+
   const exportCsv = () => {
     const url = exportUrl({ ...EMPTY_FILTERS, ...scope });
     if (url) window.open(url, "_blank");
@@ -156,6 +179,26 @@ export function StatsPage({ onOpen }: { onOpen: (f: Partial<Filters>) => void })
           <KpiCard icon={<CheckCircle2 size={15} />} label={t("k_confirmed")} value={ready ? k.confirmed : undefined} sub={t("k_confirmed_sub")} tone="violet" />
           <KpiCard icon={<Clock size={15} />} label={t("k_pending")} value={ready ? k.pending : undefined} sub={t("k_pending_sub")} tone="mid" />
         </div>
+
+        {ready && insights.length > 0 && (
+          <section className="card relative overflow-hidden p-4 md:p-5" aria-label={t("ins_title")}>
+            <span className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/10 blur-3xl" aria-hidden />
+            <div className="mb-3 flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent/15 text-accent"><Lightbulb size={14} /></span>
+              <h3 className="text-sm font-semibold">{t("ins_title")}</h3>
+              <span className="text-2xs text-fg3">{t("ins_sub")}</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {insights.map((x, i) => (
+                <button key={i} onClick={() => open(x.go)} className="group flex items-start gap-3 rounded-xl border bg-bg2/60 p-3 text-left transition hover:border-accent/40 hover:bg-accent/[.06]">
+                  <span className="tnum mt-0.5 font-mono text-xs font-bold text-accent">0{i + 1}</span>
+                  <span className="flex-1 text-[13px] leading-relaxed text-fg1">{x.text}</span>
+                  <ArrowUpRight size={14} className="mt-0.5 shrink-0 text-fg3 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {ready && !items.length ? (
           <div className="card"><EmptyState title={t("empty_title")} body={t("empty_body")} action={<Button size="sm" onClick={() => setScope(ALL)}>{t("reset")}</Button>} /></div>
@@ -303,6 +346,7 @@ export function StatsPage({ onOpen }: { onOpen: (f: Partial<Filters>) => void })
                             <span className="flex items-center gap-2">
                               <span className="grid h-7 w-7 place-items-center rounded-full bg-accent2/15 text-[10px] font-bold uppercase text-accent2">{r.user.slice(0, 2)}</span>
                               <span className="font-mono text-xs">{r.user}</span>
+                              {isDemoUser(r.user) && <span className="rounded border border-risk-mid/40 bg-risk-mid/15 px-1 text-[9px] font-bold tracking-widest text-risk-mid">DEMO</span>}
                             </span>
                           </td>
                           <td className="w-[40%] py-2.5">
@@ -319,7 +363,7 @@ export function StatsPage({ onOpen }: { onOpen: (f: Partial<Filters>) => void })
                     </tbody>
                   </table>
                 </div>
-              ) : ins.isLoading ? <Skeleton className="h-32" /> : <EmptyState title={t("no_history")} body={t("no_activity_body")} />}
+              ) : ins.isLoading ? <Skeleton className="h-32" /> : <EmptyState icon={UsersRound} title={t("no_history")} body={t("no_activity_body")} hint={t("demo_act_where")} />}
             </ChartCard>
           </div>
         )}

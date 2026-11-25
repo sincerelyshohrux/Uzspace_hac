@@ -37,6 +37,7 @@ export function InspectorActions({ a, pending, onPending }: { a: Alert; pending:
 
   const save = (status: Status) => {
     onPending(null);
+    const prev = { status: a.status, note: a.note };
     update.mutate(
       { status, note: note.trim() || null, user: CURRENT_USER },
       {
@@ -47,7 +48,14 @@ export function InspectorActions({ a, pending, onPending }: { a: Alert; pending:
           } catch {
             /* ignore */
           }
-          toast.success(t("saved"), { description: `${a.alert_id} → ${t(`st_${status}`)}` });
+          toast.success(t("saved"), {
+            description: `${a.alert_id} → ${t(`st_${status}`)}`,
+            duration: 7000,
+            action: {
+              label: t("undo"),
+              onClick: () => update.mutate({ ...prev, user: CURRENT_USER }, { onSuccess: () => toast(t("undone"), { description: `${a.alert_id} → ${t(`st_${prev.status}`)}` }) }),
+            },
+          });
         },
         onError: (e) => toast.error(t("save_failed", { e: e instanceof Error ? e.message : String(e) })),
       },

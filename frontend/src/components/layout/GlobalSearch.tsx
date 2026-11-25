@@ -37,7 +37,7 @@ export function GlobalSearch({ onAlert, onDistrict, inputRef }: { onAlert: (id: 
   return (
     <Popover open={open && q.trim().length > 0} onOpenChange={setOpen}>
       <P.Anchor asChild>
-        <div ref={wrap} className="relative w-full max-w-[340px]">
+        <div ref={wrap} className="relative w-full min-w-[220px] max-w-[340px]">
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg3" />
           <input
             ref={inputRef}
@@ -55,12 +55,12 @@ export function GlobalSearch({ onAlert, onDistrict, inputRef }: { onAlert: (id: 
               if (e.key === "Escape") { setQ(""); inputRef.current?.blur(); }
             }}
             placeholder={t("search_ph")}
-            className="field h-9 w-full rounded-xl pl-9 pr-10"
+            className="field h-9 w-full rounded-xl pl-9 pr-16"
             aria-label={t("search_ph")}
             role="combobox"
             aria-expanded={open && results.length > 0}
           />
-          <span className="kbd pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">/</span>
+          <span className="pointer-events-none absolute right-2.5 top-1/2 flex -translate-y-1/2 gap-1"><span className="kbd">/</span><span className="kbd">⌘K</span></span>
         </div>
       </P.Anchor>
       <PopoverContent className="w-[340px] p-1" align="start">

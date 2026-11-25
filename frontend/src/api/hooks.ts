@@ -14,6 +14,7 @@ export const useAudit = (id: string | null) => useQuery({ queryKey: ["audit", id
 export const useSummary = () => useQuery({ queryKey: ["stats", "summary"], queryFn: api.summary });
 export const useDistrictStats = () => useQuery({ queryKey: ["stats", "districts"], queryFn: api.districts });
 export const useTimeline = () => useQuery({ queryKey: ["stats", "timeline"], queryFn: api.timeline });
+export const useDemoActivity = () => useQuery({ queryKey: ["stats", "demo"], queryFn: api.demoActivity, retry: false });
 export const useInspectors = () => useQuery({ queryKey: ["stats", "inspectors"], queryFn: api.inspectors });
 
 /** Optimistic status update: list + detail change instantly, rolled back on error. */
@@ -38,6 +39,24 @@ export function useUpdateAlert(id: string) {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
       qc.invalidateQueries({ queryKey: ["audit", id] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+  });
+}
+
+/** Bulk status change; returns the previous state of every alert so the caller can offer undo. */
+export function useBulkUpdate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rows: { id: string; body: AlertUpdate }[]) => {
+      const out: Alert[] = [];
+      for (const r of rows) out.push(await api.update(r.id, r.body));
+      return out;
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+      qc.invalidateQueries({ queryKey: ["alert"] });
+      qc.invalidateQueries({ queryKey: ["audit"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
     },
   });

@@ -1,6 +1,11 @@
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { api } from "@/api/client";
+import { useAlerts, useDemoActivity } from "@/api/hooks";
+import { EMPTY_FILTERS } from "@/api/types";
+import { buildDemoActivity } from "@/lib/demoActivity";
+import { Switch } from "@/components/ui/switch";
 import { setPreferredMode, type DataMode } from "@/app/mode";
 import { useTheme } from "@/app/theme";
 import { Button } from "@/components/ui/button";
@@ -13,6 +18,27 @@ export function SettingsDialog({ open, onOpenChange, mode, apiOnline }: { open: 
   const { theme, setTheme } = useTheme();
   const qc = useQueryClient();
   const row = "flex items-center justify-between gap-3 py-2.5";
+  const demoQ = useDemoActivity();
+  const all = useAlerts(EMPTY_FILTERS);
+  const [busy, setBusy] = useState(false);
+  const demoOn = (demoQ.data?.rows ?? 0) > 0;
+  const toggleDemo = async (v: boolean) => {
+    setBusy(true);
+    try {
+      if (v) {
+        const r = await api.demoSeed(buildDemoActivity(all.data?.items ?? []));
+        toast.success(t("demo_act_on", { n: r.rows }));
+      } else {
+        const r = await api.demoClear();
+        toast.success(t("demo_act_off", { n: r.removed }));
+      }
+      await qc.invalidateQueries();
+    } catch (e) {
+      toast.error(t("save_failed", { e: e instanceof Error ? e.message : String(e) }));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={t("nav_settings")}>
@@ -39,6 +65,16 @@ export function SettingsDialog({ open, onOpenChange, mode, apiOnline }: { open: 
             />
           </div>
           <div className={row}>
+            <span className="min-w-0">
+              <span className="flex items-center gap-2 text-sm">
+                {t("demo_act")}
+                <span className="rounded border border-risk-mid/40 bg-risk-mid/15 px-1 text-[9px] font-bold tracking-widest text-risk-mid">DEMO</span>
+              </span>
+              <span className="mt-0.5 block text-2xs leading-snug text-fg3">{t("demo_act_hint")}</span>
+            </span>
+            <Switch checked={demoOn} onChange={toggleDemo} label={t("demo_act")} disabled={busy || demoQ.isError || !all.data} />
+          </div>
+          <div className={row}>
             <span className="text-sm">{t("reset_demo")}</span>
             <Button
               size="sm"
@@ -63,8 +99,10 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
     [["/"], t("sc_search")],
     [["↑", "↓"], t("sc_nav")],
     [["Enter", "Esc"], t("sc_open")],
-    [["[", "]"], `${t("prev")} / ${t("next")}`],
+    [["⌘", "K"], t("cmdk")],
+    [["J", "K"], `${t("next")} / ${t("prev")}`],
     [["1", "2", "3"], t("sc_status")],
+    [["C"], t("cmp_map")],
     [["?"], t("sc_help")],
   ];
   return (

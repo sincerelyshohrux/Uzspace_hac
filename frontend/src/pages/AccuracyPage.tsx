@@ -1,5 +1,7 @@
-import { ArrowRight, Brain, CheckCircle2, CircleDashed, Database, FlaskConical, Layers3, ListChecks, Satellite, Target, TrendingUp, Waypoints } from "lucide-react";
+import { AlertTriangle, ArrowRight, Brain, CheckCircle2, CircleDashed, Copy, Database, FlaskConical, Lock, PenLine, TerminalSquare, Layers3, ListChecks, Satellite, Target, TrendingUp, Waypoints } from "lucide-react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMetrics } from "@/api/hooks";
 import { AXIS, GRID, TOOLTIP } from "@/components/analytics/chartTheme";
@@ -186,6 +188,31 @@ export function AccuracyPage() {
   );
 }
 
+const STRATUM_HEX: Record<string, string> = { alert: "#EF4444", candidate: "#F59E0B", other: "#3B82F6" };
+const LABEL_URL = "http://localhost:8090/label.html?v=2";
+
+function Ring({ value, total }: { value: number; total: number }) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const k = total ? Math.min(1, value / total) : 0;
+  return (
+    <div className="relative grid h-[132px] w-[132px] shrink-0 place-items-center">
+      <svg viewBox="0 0 120 120" className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx="60" cy="60" r={r} fill="none" stroke="rgb(var(--bg-3))" strokeWidth="9" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="rgb(var(--line) / .25)" strokeWidth="9" strokeDasharray="2 6" />
+        <motion.circle
+          cx="60" cy="60" r={r} fill="none" stroke="rgb(var(--accent))" strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - k) }} transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+        />
+      </svg>
+      <div className="text-center leading-none">
+        <div className="tnum text-[28px] font-bold">{value}</div>
+        <div className="tnum mt-1 text-2xs text-fg2">/ {total}</div>
+      </div>
+    </div>
+  );
+}
+
 /** Shown until the team has labelled the validation sample: method, status, no numbers. */
 function PendingAccuracy({ m }: { m: Metrics }) {
   const { t } = useI18n();
@@ -193,40 +220,85 @@ function PendingAccuracy({ m }: { m: Metrics }) {
   const strata = m.sampling ?? [];
   const totalPx = strata.reduce((s, x) => s + x.pixels, 0);
   const totalPts = strata.reduce((s, x) => s + x.points, 0);
+  const done = m.labelled?.usable ?? 0;
+  const total = m.labelled?.total ?? totalPts;
   const steps: [boolean, string, string][] = [
     [true, t("acc_s1"), t("acc_s1d")],
     [true, t("acc_s2"), t("acc_s2d")],
     [false, t("acc_s3"), t("acc_s3d")],
     [false, t("acc_s4"), t("acc_s4d")],
   ];
+  const copyCmd = async () => {
+    try {
+      await navigator.clipboard.writeText("make label");
+      toast.success(t("copied"));
+    } catch {
+      /* ignore */
+    }
+  };
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-[1100px] space-y-4 p-4 md:p-6">
+      <div className="mx-auto max-w-[1280px] space-y-4 p-4 md:p-6">
         <div>
           <h2 className="text-lg font-semibold">{t("nav_accuracy")}</h2>
           <p className="text-xs text-fg2">{t("acc_pending_sub")}</p>
         </div>
-        <div className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5 text-sm">
-          <FlaskConical size={16} className="mt-0.5 shrink-0 text-amber-400" />
-          <span className="text-fg1">{t("acc_pending_body")}</span>
-        </div>
-        <section className="card p-4">
-          <h3 className="mb-3 text-sm font-semibold">{t("acc_method")}</h3>
-          <ol className="grid gap-2 md:grid-cols-2">
-            {steps.map(([done, title, desc]) => (
-              <li key={title} className="flex gap-3 rounded-xl border bg-bg2 p-3">
-                {done ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-ok" /> : <CircleDashed size={18} className="mt-0.5 shrink-0 text-fg3" />}
-                <div>
-                  <div className="text-[13px] font-semibold">{title}</div>
-                  <div className="text-2xs text-fg2">{desc}</div>
-                </div>
-              </li>
-            ))}
-          </ol>
+
+        {/* Hero: progress + call to action */}
+        <section className="card relative overflow-hidden p-5">
+          <span className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-accent/10 blur-3xl" aria-hidden />
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-center">
+            <Ring value={done} total={total} />
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 inline-flex items-center gap-1.5 rounded-md border border-risk-mid/40 bg-risk-mid/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-risk-mid">
+                <Lock size={11} /> {t("acc_locked")}
+              </div>
+              <h3 className="text-base font-semibold">{t("acc_hero_title", { n: total })}</h3>
+              <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-fg2">{t("acc_pending_body")}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button variant="primary" onClick={() => window.open(LABEL_URL, "_blank", "noopener")}>
+                  <PenLine size={14} /> {t("acc_start_label")}
+                </Button>
+                <button onClick={copyCmd} className="inline-flex h-9 items-center gap-2 rounded-lg border bg-bg2 px-3 font-mono text-xs text-fg1 hover:border-accent/40" title={t("copy")}>
+                  <TerminalSquare size={14} className="text-fg3" /> make label <Copy size={12} className="text-fg3" />
+                </button>
+                <span className="text-2xs text-fg3">{t("acc_label_keys")}</span>
+              </div>
+            </div>
+          </div>
         </section>
-        {strata.length > 0 && (
-          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+
+        {/* Locked metric cards */}
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {[t("precision"), t("recall"), "F1", t("object_precision")].map((name) => (
+            <div key={name} className="card relative overflow-hidden p-4">
+              <div className="hud-label truncate">{name}</div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="tnum text-3xl font-semibold text-fg3">—</span>
+                <span className="text-2xs text-fg3">{t("acc_pending_val")}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-1 text-2xs text-fg3"><Lock size={11} /> {t("acc_unlock")}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          {strata.length > 0 && (
             <ChartCard title={t("acc_sample")} hint={t("acc_sample_hint")}>
+              {/* points per stratum as one segmented bar */}
+              <div className="mb-1 flex h-3 overflow-hidden rounded-full bg-bg3" role="img" aria-label={t("acc_sample")}>
+                {strata.map((x) => (
+                  <span key={x.stratum} style={{ width: `${(x.points / totalPts) * 100}%`, background: STRATUM_HEX[x.stratum] ?? "#94A3B8" }} className="h-full border-r border-bg1 last:border-0" />
+                ))}
+              </div>
+              <div className="mb-3 flex flex-wrap gap-3 text-2xs text-fg2">
+                {strata.map((x) => (
+                  <span key={x.stratum} className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-sm" style={{ background: STRATUM_HEX[x.stratum] ?? "#94A3B8" }} />
+                    {t(`acc_s_${x.stratum}` as I18nKey)} · <b className="tnum text-fg1">{x.points}</b>
+                  </span>
+                ))}
+              </div>
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="text-left text-2xs uppercase tracking-wide text-fg3">
@@ -245,7 +317,7 @@ function PendingAccuracy({ m }: { m: Metrics }) {
                         <td className="tnum py-2 text-right text-fg2">{fmtInt(x.pixels / 100)} {t("ha")}</td>
                         <td className="w-[30%] py-2 pl-3">
                           <span className="flex items-center gap-2">
-                            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg3"><span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(1, share * 100)}%` }} /></span>
+                            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg3"><span className="block h-full rounded-full" style={{ width: `${Math.max(1, share * 100)}%`, background: STRATUM_HEX[x.stratum] ?? "#94A3B8" }} /></span>
                             <span className="tnum w-9 text-right text-2xs text-fg2">{(share * 100).toFixed(1)}%</span>
                           </span>
                         </td>
@@ -261,20 +333,51 @@ function PendingAccuracy({ m }: { m: Metrics }) {
                   </tr>
                 </tbody>
               </table>
+              <p className="mt-3 text-xs text-fg3">{t("acc_need")}</p>
             </ChartCard>
-            <ChartCard title={t("acc_progress")}>
-              <div className="flex items-baseline gap-1.5">
-                <span className="tnum text-3xl font-semibold">{m.labelled?.usable ?? 0}</span>
-                <span className="tnum text-sm text-fg2">/ {m.labelled?.total ?? totalPts}</span>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg3">
-                <div className="h-full rounded-full bg-accent" style={{ width: `${((m.labelled?.usable ?? 0) / Math.max(1, m.labelled?.total ?? totalPts)) * 100}%` }} />
-              </div>
-              <p className="mt-3 text-xs text-fg2">{t("acc_progress_body", { n: totalPts })}</p>
-              <p className="mt-1.5 text-xs text-fg3">{t("acc_need")}</p>
-            </ChartCard>
-          </div>
-        )}
+          )}
+
+          <ChartCard title={t("confusion")} hint={t("acc_cm_hint")}>
+            <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-2 text-xs">
+              <span />
+              <span className="text-center font-medium text-fg2">{t("predicted")}: {t("change")}</span>
+              <span className="text-center font-medium text-fg2">{t("predicted")}: {t("no_change")}</span>
+              {([["actual_change", ["cm_tp", "cm_fn"]], ["actual_none", ["cm_fp", "cm_tn"]]] as const).map(([row, cells]) => (
+                <div key={row} className="contents">
+                  <span className="max-w-[88px] pr-1 text-right font-medium text-fg2">{t("actual")}: {row === "actual_change" ? t("change") : t("no_change")}</span>
+                  {cells.map((c) => (
+                    <div key={c} className="skeleton grid place-items-center rounded-xl border border-dashed py-5">
+                      <div className="relative text-center">
+                        <div className="tnum text-xl font-semibold text-fg3">?</div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg3">{t(c)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-fg2">{t("acc_cm_body")}</p>
+          </ChartCard>
+        </div>
+
+        <section className="card p-4">
+          <h3 className="mb-4 text-sm font-semibold">{t("acc_method")}</h3>
+          <ol className="relative grid gap-3 md:grid-cols-4">
+            <span className="absolute left-[18px] right-[18px] top-[17px] hidden h-px bg-gradient-to-r from-ok via-accent to-line/20 md:block" aria-hidden />
+            {steps.map(([ok, title, desc], i) => (
+              <li key={title} className="relative flex gap-3 md:block">
+                <span className={cn("relative z-[1] grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 bg-bg1", ok ? "border-ok text-ok" : i === 2 ? "border-accent text-accent" : "border-line/30 text-fg3")}>
+                  {ok ? <CheckCircle2 size={16} /> : i === 2 ? <PenLine size={15} /> : <CircleDashed size={16} />}
+                </span>
+                <div className="md:mt-3">
+                  <div className="text-[13px] font-semibold">{title}</div>
+                  <div className="mt-0.5 text-2xs leading-relaxed text-fg2">{desc}</div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard title={t("acc_compare_what")}>
             <ul className="space-y-2 text-[13px]">
@@ -283,13 +386,14 @@ function PendingAccuracy({ m }: { m: Metrics }) {
               ))}
             </ul>
           </ChartCard>
-          <ChartCard title={t("limitations")}>
+          <section className="rounded-2xl border border-risk-mid/30 bg-risk-mid/[.07] p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><AlertTriangle size={15} className="text-risk-mid" /> {t("limitations")}</h3>
             <ul className="space-y-2 text-[13px] text-fg1">
               {limitations.map((l) => (
                 <li key={l} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-risk-mid" />{l}</li>
               ))}
             </ul>
-          </ChartCard>
+          </section>
         </div>
       </div>
     </motion.div>

@@ -1,7 +1,7 @@
-import { HelpCircle, Moon, Settings, Sun, WifiOff } from "lucide-react";
+import { Command, FlaskConical, HelpCircle, Moon, Settings, Sun, WifiOff } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { useMeta } from "@/api/hooks";
+import { useDemoActivity, useMeta } from "@/api/hooks";
 import type { DataMode } from "@/app/mode";
 import type { Tab } from "@/app/state";
 import { useTheme } from "@/app/theme";
@@ -28,7 +28,7 @@ function Clock() {
   );
 }
 
-export function TopBar({ tab, onTab, mode, apiOnline, onAlert, onDistrict, searchRef, onSettings, onHelp }: {
+export function TopBar({ tab, onTab, mode, apiOnline, onAlert, onDistrict, searchRef, onSettings, onHelp, onCommand }: {
   tab: Tab;
   onTab: (t: Tab) => void;
   mode: DataMode;
@@ -38,12 +38,14 @@ export function TopBar({ tab, onTab, mode, apiOnline, onAlert, onDistrict, searc
   searchRef: React.RefObject<HTMLInputElement>;
   onSettings: () => void;
   onHelp: () => void;
+  onCommand: () => void;
 }) {
   const { t, lang, setLang } = useI18n();
   const meta = useMeta();
   const { theme, toggle } = useTheme();
   const online = useOnline();
   const m = meta.data;
+  const demoRows = useDemoActivity().data?.rows ?? 0;
   const status = !online ? "offline" : mode === "demo" ? "demo" : apiOnline ? "online" : "offline";
   const dot = { online: "bg-ok", demo: "bg-risk-mid", offline: "bg-risk-high" }[status];
   const label = { online: t("api_online"), demo: t("api_demo"), offline: online ? t("api_offline") : t("offline") }[status];
@@ -95,6 +97,16 @@ export function TopBar({ tab, onTab, mode, apiOnline, onAlert, onDistrict, searc
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 xl:ml-0">
         <Clock />
+        {demoRows > 0 && (
+          <Tip label={t("demo_act_tip", { n: demoRows })}>
+            <button onClick={onSettings} className="flex h-9 items-center gap-1.5 rounded-xl border border-risk-mid/40 bg-risk-mid/10 px-2.5 text-[10px] font-bold tracking-widest text-risk-mid">
+              <FlaskConical size={13} /> <span className="hidden 2xl:inline">{t("demo_act_badge")}</span>
+            </button>
+          </Tip>
+        )}
+        <Tip label={t("cmdk")} kbd="⌘K">
+          <button onClick={onCommand} className={cn(iconBtn, "hidden lg:grid xl:hidden")} aria-label={t("cmdk")}><Command size={15} /></button>
+        </Tip>
         <Tip label={label}>
           <span className="hidden h-9 items-center gap-1.5 rounded-xl border bg-bg2/70 px-2.5 text-[11px] font-semibold tracking-wider text-fg2 sm:flex" role="status" aria-label={label}>
             {status === "offline" && !online ? <WifiOff size={12} className="text-risk-high" /> : (

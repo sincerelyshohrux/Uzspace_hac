@@ -1,4 +1,4 @@
-import { Box, Crosshair, Layers, Maximize2, Minimize2, Minus, Plus, ScanSearch } from "lucide-react";
+import { Box, Columns2, Crosshair, Layers, Maximize2, Minimize2, Minus, Plus, ScanSearch } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { Basemap, LayerPrefs } from "@/app/state";
 
@@ -15,9 +15,9 @@ function Group({ children, className }: { children: ReactNode; className?: strin
 }
 const ctl = "grid h-9 w-9 place-items-center text-fg2 transition-colors hover:bg-bg3/70 hover:text-fg1";
 
-export function MapControls({ map, basemap, onBasemap, view3d, on3d, layers, onLayers, className }: {
+export function MapControls({ map, basemap, onBasemap, view3d, on3d, layers, onLayers, compare, onCompare, className }: {
   map: React.RefObject<MapHandle>; basemap: Basemap; onBasemap: (b: Basemap) => void; view3d: boolean; on3d: (v: boolean) => void;
-  layers: LayerPrefs; onLayers: (l: LayerPrefs) => void; className?: string;
+  layers: LayerPrefs; onLayers: (l: LayerPrefs) => void; compare: boolean; onCompare: (v: boolean) => void; className?: string;
 }) {
   const { t } = useI18n();
   const [fs, setFs] = useState(false);
@@ -31,9 +31,21 @@ export function MapControls({ map, basemap, onBasemap, view3d, on3d, layers, onL
   return (
     <div className={cn("pointer-events-none flex flex-col items-end gap-2", className)}>
       <div className="pointer-events-auto flex items-center gap-2">
+        <Tip label={t("cmp_hint")} side="bottom">
+          <button
+            onClick={() => onCompare(!compare)}
+            aria-pressed={compare}
+            className={cn(
+              "glass inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold transition-colors",
+              compare ? "bg-accent text-bg0 hover:bg-accent/90" : "text-fg1 hover:bg-bg3/70",
+            )}
+          >
+            <Columns2 size={14} /> {t("cmp_map")}
+          </button>
+        </Tip>
         <Segmented
           label="Basemap"
-          className="glass hidden sm:inline-flex"
+          className={cn("glass hidden", !compare && "sm:inline-flex")}
           value={basemap}
           onChange={onBasemap}
           options={[

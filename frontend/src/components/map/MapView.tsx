@@ -5,6 +5,7 @@ import type { Alert, DistrictLayer, ZoneLayer } from "@/api/types";
 import type { Basemap, LayerPrefs } from "@/app/state";
 import { mLon } from "@/lib/geo";
 import { RISK_HEX, ZONE_HEX } from "@/lib/format";
+import { WAYBACK, waybackTemplate } from "@/lib/wayback";
 import { baseStyle, FONT, START_ZOOM, TASHKENT } from "./mapStyle";
 
 export interface MapHandle {
@@ -28,6 +29,9 @@ interface Props {
   padding: { left: number; right: number; bottom: number; top: number };
   reducedMotion: boolean;
   activeDistrict?: string;
+  /** Swipe between 2023 and 2025 high-resolution imagery over the whole map */
+  compare?: boolean;
+  compareLabels?: { left: string; right: string; hint: string };
 }
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
@@ -96,6 +100,11 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
   const cb = useRef(p);
   cb.current = p;
   const prevSel = useRef<string | null>(null);
+  const ovEl = useRef<HTMLDivElement>(null);
+  const ov = useRef<MLMap | null>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState(50);
+  const dragging = useRef(false);
   const prevHover = useRef<string | null>(null);
 
   const alertFC = useMemo<GeoJSON.FeatureCollection>(
@@ -318,6 +327,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       ro.disconnect();
       m.remove();
       map.current = null;
+      setReady(false); // a re-created map (fast refresh) must load its sources first
     };
   }, []);
 
@@ -347,15 +357,72 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     const m = map.current;
     if (!ready || !m) return;
     const vis = (id: string, on: boolean) => m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-    vis("base-sat", p.basemap === "satellite");
-    vis("base-sat-labels", p.basemap === "satellite");
-    vis("base-streets", p.basemap === "streets");
-    vis("base-dark", p.basemap === "dark");
-    const light = p.basemap === "streets";
+    const cmp = !!p.compare;
+    vis("base-sat", p.basemap === "satellite" && !cmp);
+    vis("base-wb2", cmp);
+    vis("base-sat-labels", p.basemap === "satellite" && !cmp);
+    vis("base-streets", p.basemap === "streets" && !cmp);
+    vis("base-dark", p.basemap === "dark" && !cmp);
+    const light = p.basemap === "streets" && !cmp;
     m.setPaintProperty("districts-line", "line-color", light ? "#334155" : "#E2E8F0");
     m.setPaintProperty("districts-label", "text-color", light ? "#0F172A" : "#E2E8F0");
     m.setPaintProperty("districts-label", "text-halo-color", light ? "rgba(255,255,255,.9)" : "rgba(7,11,20,.85)");
-  }, [ready, p.basemap]);
+  }, [ready, p.basemap, p.compare]);
+
+  // Compare mode: a second, non-interactive map with the 2023 imagery, clipped to the left of the
+  // swipe line and following the main map's camera (including its padding).
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m || !p.compare || !ovEl.current) return;
+    // start the line in the middle of the part of the map not covered by panels
+    const W = wrap.current?.clientWidth ?? 0;
+    const pd = cb.current.padding;
+    if (W) setPos(Math.min(90, Math.max(10, ((pd.left + (W - pd.left - pd.right) / 2) / W) * 100)));
+    const o = new maplibregl.Map({
+      container: ovEl.current,
+      style: {
+        version: 8,
+        sources: {
+          wb1: { type: "raster", tiles: [waybackTemplate(WAYBACK.t1.release)], tileSize: 256, maxzoom: 19 },
+          al: { type: "geojson", data: alertFC },
+        },
+        layers: [
+          { id: "bg", type: "background", paint: { "background-color": "#070B14" } },
+          { id: "wb1", type: "raster", source: "wb1" },
+          { id: "al", type: "line", source: "al", minzoom: 12.5, paint: { "line-color": "#22D3EE", "line-width": 1.6, "line-dasharray": [2, 1.5] } },
+        ],
+      },
+      interactive: false,
+      attributionControl: false,
+      center: m.getCenter(),
+      zoom: m.getZoom(),
+      bearing: m.getBearing(),
+      pitch: m.getPitch(),
+    });
+    ov.current = o;
+    const sync = () => o.jumpTo({ center: m.getCenter(), zoom: m.getZoom(), bearing: m.getBearing(), pitch: m.getPitch(), padding: m.getPadding() });
+    sync();
+    m.on("move", sync);
+    const ro = new ResizeObserver(() => {
+      o.resize();
+      sync();
+    });
+    ro.observe(ovEl.current);
+    return () => {
+      m.off("move", sync);
+      ro.disconnect();
+      o.remove();
+      ov.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, p.compare]);
+  useEffect(() => {
+    const o = ov.current;
+    if (!o) return;
+    const apply = () => (o.getSource("al") as GeoJSONSource | undefined)?.setData(alertFC);
+    if (o.isStyleLoaded()) apply();
+    else o.once("load", apply);
+  }, [alertFC, p.compare]);
 
   useEffect(() => {
     const m = map.current;
@@ -378,8 +445,10 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     m.setFilter("zones-line", ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["canal", "river"]]], tf]);
     m.setFilter("zones-line-dashed", ["all", ["==", ["geometry-type"], "LineString"], ["in", ["get", "zone"], ["literal", ["power_line", "railway"]]], tf]);
     m.setPaintProperty("zones-fill", "fill-opacity", L.zoneOpacity);
-    m.setPaintProperty("alerts-fill", "fill-opacity", ["case", ["boolean", ["feature-state", "selected"], false], Math.min(1, L.alertOpacity + 0.25), ["boolean", ["feature-state", "hover"], false], Math.min(1, L.alertOpacity + 0.15), L.alertOpacity]);
-  }, [ready, p.layers, p.view3d]);
+    const fo = p.compare ? 0 : L.alertOpacity; // compare: outlines only, so both years stay visible
+    m.setPaintProperty("alerts-fill", "fill-opacity", ["case", ["boolean", ["feature-state", "selected"], false], p.compare ? 0.12 : Math.min(1, fo + 0.25), ["boolean", ["feature-state", "hover"], false], Math.min(1, fo + 0.15), fo]);
+    ["zones-fill", "zones-buffer"].forEach((id) => vis(id, L.zones && !p.compare && (id !== "zones-buffer" || L.buffers)));
+  }, [ready, p.layers, p.view3d, p.compare]);
 
   useEffect(() => {
     const m = map.current;
@@ -438,9 +507,53 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     return () => cancelAnimationFrame(raf);
   }, [ready, p.reducedMotion]);
 
+  const drag = (e: React.PointerEvent) => {
+    if (!dragging.current || !wrap.current) return;
+    const r = wrap.current.getBoundingClientRect();
+    setPos(Math.min(98, Math.max(2, ((e.clientX - r.left) / r.width) * 100)));
+  };
+  const L = p.compareLabels;
+
   return (
-    <div className="absolute inset-0">
+    <div ref={wrap} className="absolute inset-0">
       <div ref={el} className="h-full w-full" role="region" aria-label="Map" />
+      {p.compare && (
+        <>
+          {/* maplibre sets position:relative on its container, so clip an absolute wrapper instead */}
+          <div className="pointer-events-none absolute inset-0 z-[5]" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} aria-hidden>
+            <div ref={ovEl} className="h-full w-full" />
+          </div>
+          <div className="pointer-events-none absolute inset-y-0 z-[6] w-0.5 bg-white/90 shadow-[0_0_10px_rgba(0,0,0,.6)]" style={{ left: `calc(${pos}% - 1px)` }}>
+            {L && (
+              <div className="absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap text-[11px] font-semibold">
+                <span className="rounded-l-md bg-black/70 px-2 py-1 text-white backdrop-blur">◀ {L.left}</span>
+                <span className="rounded-r-md bg-accent/90 px-2 py-1 text-bg0">{L.right} ▶</span>
+              </div>
+            )}
+            <button
+              role="slider"
+              aria-label={L?.hint ?? "Compare"}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(pos)}
+              title={L?.hint}
+              onPointerDown={(e) => {
+                dragging.current = true;
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={drag}
+              onPointerUp={() => (dragging.current = false)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft") setPos((v) => Math.max(2, v - 4));
+                if (e.key === "ArrowRight") setPos((v) => Math.min(98, v + 4));
+              }}
+              className="pointer-events-auto absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none place-items-center rounded-full border-2 border-white bg-black/60 text-white shadow-lg backdrop-blur"
+            >
+              ⇆
+            </button>
+          </div>
+        </>
+      )}
       <div ref={coordEl} className="pointer-events-none absolute bottom-2 left-[110px] z-10 hidden rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] text-white/85 backdrop-blur md:block" aria-hidden />
     </div>
   );

@@ -16,6 +16,7 @@ export interface AppState {
   month: string | null; // timeline cap, null = whole period
   basemap: Basemap;
   view3d: boolean;
+  compare: boolean; // 2023 / 2025 swipe over the whole map
 }
 
 
@@ -38,6 +39,7 @@ function fromUrl(): AppState {
     month: /^\d{4}-\d{2}$/.test(p.get("month") ?? "") ? p.get("month") : null,
     basemap: (["satellite", "streets", "dark"] as const).find((x) => x === p.get("basemap")) ?? "satellite",
     view3d: p.get("mode") === "3d",
+    compare: p.get("compare") === "1",
   };
 }
 
@@ -56,6 +58,7 @@ function toUrl(s: AppState) {
   if (s.month) p.set("month", s.month);
   if (s.basemap !== "satellite") p.set("basemap", s.basemap);
   if (s.view3d) p.set("mode", "3d");
+  if (s.compare) p.set("compare", "1");
   const qs = p.toString();
   const url = `${location.pathname}${qs ? `?${qs}` : ""}`;
   if (url !== `${location.pathname}${location.search}`) history.replaceState(null, "", url);

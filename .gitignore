@@ -21,3 +21,4 @@ frontend/public/demo/
 *.db-wal
 *.db-shm
 pipeline/cache/
+SiteSentinel_rasmlar.zip

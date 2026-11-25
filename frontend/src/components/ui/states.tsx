@@ -1,4 +1,5 @@
 import { AlertTriangle, SearchX } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/cn";
@@ -8,13 +9,18 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("skeleton", className)} />;
 }
 
-export function EmptyState({ title, body, action, className }: { title: string; body?: string; action?: ReactNode; className?: string }) {
+export function EmptyState({ title, body, action, className, icon: Icon = SearchX, hint }: { title: string; body?: string; action?: ReactNode; className?: string; icon?: LucideIcon; hint?: ReactNode }) {
   return (
     <div className={cn("flex flex-col items-center justify-center gap-2 px-6 py-10 text-center", className)}>
-      <div className="grid h-10 w-10 place-items-center rounded-xl border bg-bg2 text-fg2"><SearchX size={18} /></div>
-      <div className="text-sm font-medium">{title}</div>
-      {body && <p className="max-w-[260px] text-xs text-fg2">{body}</p>}
-      {action}
+      <div className="relative mb-1 grid h-14 w-14 place-items-center">
+        <span className="absolute inset-0 rounded-2xl bg-accent/10 blur-md" aria-hidden />
+        <span className="absolute inset-0 rounded-2xl border border-dashed border-accent/35" aria-hidden />
+        <Icon size={22} className="relative text-accent" />
+      </div>
+      <div className="text-sm font-semibold">{title}</div>
+      {body && <p className="max-w-[270px] text-xs leading-relaxed text-fg2">{body}</p>}
+      {action && <div className="mt-1.5">{action}</div>}
+      {hint && <div className="mt-1 text-2xs text-fg3">{hint}</div>}
     </div>
   );
 }

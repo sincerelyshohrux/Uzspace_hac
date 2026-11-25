@@ -5,6 +5,7 @@ import { apiReachable, type DataMode } from "./mode";
 import { useAppState } from "./state";
 import { useBreakpoint } from "./useMedia";
 import { ApiBanner } from "@/components/layout/ApiBanner";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { SettingsDialog, ShortcutsDialog } from "@/components/layout/Dialogs";
 import { MobileTabBar } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
@@ -17,6 +18,7 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
   const bp = useBreakpoint();
   const [settings, setSettings] = useState(false);
   const [help, setHelp] = useState(false);
+  const [cmd, setCmd] = useState(false);
   const [apiOnline, setApiOnline] = useState(initialOnline);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +32,11 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
   // global shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setCmd((v) => !v);
+        return;
+      }
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "/") {
@@ -38,10 +45,11 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
         setTimeout(() => searchRef.current?.focus(), 0);
       }
       if (e.key === "?") setHelp(true);
+      if ((e.key === "c" || e.key === "C") && !e.metaKey && !e.ctrlKey && s.tab === "dashboard") set({ compare: !s.compare });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [s.tab, set]);
+  }, [s.tab, s.compare, set]);
 
   const goDistrict = (d: string) => {
     setFilters({ district: d });
@@ -63,6 +71,7 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
           onTab={(tab) => set({ tab })}
           onSettings={() => setSettings(true)}
           onHelp={() => setHelp(true)}
+          onCommand={() => setCmd(true)}
           mode={mode}
           apiOnline={apiOnline}
           onAlert={(id) => set({ tab: "dashboard", alert: id })}
@@ -81,6 +90,7 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
       </div>
       <SettingsDialog open={settings} onOpenChange={setSettings} mode={mode} apiOnline={apiOnline} />
       <ShortcutsDialog open={help} onOpenChange={setHelp} />
+      <CommandPalette open={cmd} onOpenChange={setCmd} onDistrict={goDistrict} onSettings={() => setSettings(true)} onHelp={() => setHelp(true)} />
     </div>
   );
 }

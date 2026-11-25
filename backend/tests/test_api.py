@@ -65,3 +65,20 @@ def test_layers_and_static(client):
     a = client.get("/api/alerts").json()["items"][0]
     assert client.get(f"/static/{a['chip_before']}").status_code == 200
     assert client.get("/static/test.db").status_code == 404
+
+
+def test_demo_activity_is_labelled_and_removable(client):
+    a = client.get("/api/alerts?limit=2&offset=5").json()["items"]
+    before = [x["status"] for x in a]
+    rows = [
+        {"alert_id": a[0]["alert_id"], "new_status": "in_review", "user": "demo.aziza", "ts": "2025-11-01T09:00:00Z"},
+        {"alert_id": a[0]["alert_id"], "new_status": "confirmed", "note": "[DEMO]", "user": "demo.aziza", "ts": "2025-11-02T09:00:00Z"},
+        {"alert_id": a[1]["alert_id"], "new_status": "confirmed", "user": "real.user", "ts": "2025-11-02T09:00:00Z"},
+    ]
+    assert client.post("/api/demo/activity", json=rows).json() == {"rows": 2}  # non-demo user rejected
+    assert client.get("/api/demo/activity").json() == {"rows": 2}
+    assert client.get(f"/api/alerts/{a[0]['alert_id']}").json()["status"] == "confirmed"
+    assert client.get(f"/api/alerts/{a[1]['alert_id']}").json()["status"] == before[1]
+    assert client.delete("/api/demo/activity").json() == {"removed": 2}
+    assert client.get(f"/api/alerts/{a[0]['alert_id']}").json()["status"] == before[0]
+    assert client.get("/api/demo/activity").json() == {"rows": 0}
