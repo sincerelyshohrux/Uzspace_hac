@@ -16,6 +16,7 @@ import { useI18n, type I18nKey } from "@/i18n";
 import { downloadText, fmtDateTime, fmtHa, fmtMonth, RISK_HEX, riskLevel, STATUS_HEX, toCsv, ZONE_HEX } from "@/lib/format";
 import { isDemoUser } from "@/lib/demoActivity";
 import { pageVariants } from "@/lib/motion";
+import { quarterlyCumulative } from "@/components/ui/Spark";
 
 type Scope = { district: string; zone: string; status: string };
 const ALL: Scope = { district: "", zone: "", status: "" };
@@ -172,10 +173,10 @@ export function StatsPage({ onOpen }: { onOpen: (f: Partial<Filters>) => void })
         </div>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <KpiCard icon={<MapPinned size={15} />} label={t("k_total")} value={ready ? k.total : undefined} sub={t("k_total_sub")} />
+          <KpiCard icon={<MapPinned size={15} />} label={t("k_total")} value={ready ? k.total : undefined} sub={t("k_total_sub")} spark={quarterlyCumulative(items)} />
           <KpiCard icon={<Ruler size={15} />} label={t("k_area")} value={ready ? k.area : undefined} decimals={1} unit={t("ha")} sub={t("k_area_sub")} tone="blue" />
-          <KpiCard icon={<Layers size={15} />} label={t("k_restricted")} value={ready ? k.restricted : undefined} sub={t("k_restricted_sub", { p: k.restrictedPct })} tone="accent" />
-          <KpiCard icon={<AlertTriangle size={15} />} label={t("k_high")} value={ready ? k.high : undefined} sub={t("k_high_sub")} tone="high" />
+          <KpiCard icon={<Layers size={15} />} label={t("k_restricted")} value={ready ? k.restricted : undefined} sub={t("k_restricted_sub", { p: k.restrictedPct })} tone="accent" spark={quarterlyCumulative(items, (a) => a.zones.length > 0)} />
+          <KpiCard icon={<AlertTriangle size={15} />} label={t("k_high")} value={ready ? k.high : undefined} sub={t("k_high_sub")} tone="high" spark={quarterlyCumulative(items, (a) => riskLevel(a.risk_score) === "high")} />
           <KpiCard icon={<CheckCircle2 size={15} />} label={t("k_confirmed")} value={ready ? k.confirmed : undefined} sub={t("k_confirmed_sub")} tone="violet" />
           <KpiCard icon={<Clock size={15} />} label={t("k_pending")} value={ready ? k.pending : undefined} sub={t("k_pending_sub")} tone="mid" />
         </div>

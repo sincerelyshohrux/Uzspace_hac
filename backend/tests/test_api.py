@@ -82,3 +82,12 @@ def test_demo_activity_is_labelled_and_removable(client):
     assert client.delete("/api/demo/activity").json() == {"removed": 2}
     assert client.get(f"/api/alerts/{a[0]['alert_id']}").json()["status"] == before[0]
     assert client.get("/api/demo/activity").json() == {"rows": 0}
+
+
+def test_summary_report_pdf(client):
+    r = client.get("/api/reports/summary.pdf")
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    d = client.get("/api/alerts?limit=1").json()["items"][0]["district"]
+    r = client.get("/api/reports/summary.pdf", params={"district": d})
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    assert client.get("/api/reports/summary.pdf", params={"district": "Nowhere"}).status_code == 404

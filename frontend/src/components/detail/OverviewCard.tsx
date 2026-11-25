@@ -4,6 +4,7 @@ import { chipUrl } from "@/api/client";
 import { useDistrictStats, useSummary } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/states";
+import { quarterlyCumulative, Spark } from "@/components/ui/Spark";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/cn";
 import { fmtHa, fmtInt, riskLevel } from "@/lib/format";
@@ -23,6 +24,13 @@ export function OverviewCard({ items, onSelect, onDistrict }: { items: Alert[]; 
   const d = useDistrictStats();
   const top = items[0];
   const targets = items.slice(0, 3);
+  const sparks = {
+    fg: quarterlyCumulative(items),
+    high: quarterlyCumulative(items, (a) => a.risk_score >= 60),
+    accent: quarterlyCumulative(items, (a) => a.zones.length > 0),
+    mid: [] as number[],
+  };
+  const SPARK_COLOR = { fg: "rgb(var(--accent-2))", high: "rgb(var(--risk-high))", accent: "rgb(var(--accent))", mid: "rgb(var(--risk-mid))" };
   const kpis = s.data
     ? ([
         [t("k_total"), s.data.total, ScanSearch, "fg"],
@@ -48,6 +56,9 @@ export function OverviewCard({ items, onSelect, onDistrict }: { items: Alert[]; 
           ? kpis.map(([l, v, I, tone]) => (
               <div key={l} className="relative overflow-hidden rounded-xl border bg-bg2/60 p-3">
                 <span className={cn("grid h-7 w-7 place-items-center rounded-lg ring-1 ring-inset", TONE[tone])}><I size={14} /></span>
+                {sparks[tone].length > 1 && (
+                  <Spark values={sparks[tone]} color={SPARK_COLOR[tone]} className="absolute right-2.5 top-3 h-8 w-[58%] opacity-90" label={`${l}: ${t("spark_hint")}`} />
+                )}
                 <div className={cn("tnum mt-2 text-[26px] font-bold leading-none", TONE[tone].split(" ")[0])}>{v}</div>
                 <div className="mt-1 text-2xs text-fg2">{l}</div>
               </div>

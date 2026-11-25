@@ -1,4 +1,5 @@
-import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Info, Link2, MapPin, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ClipboardCheck, Copy, ExternalLink, FileText, Gavel, Info, Link2, MapPin, X } from "lucide-react";
+import { motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { Alert, Status } from "@/api/types";
@@ -46,6 +47,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+type DetailTab = "overview" | "evidence" | "decide" | "history";
+let lastTab: DetailTab = "overview"; // kept while moving between alerts with J/K
+
 const PERMIT_CLS = {
   none: "border-risk-high/30 bg-risk-high/10 text-risk-high",
   partial: "border-risk-mid/30 bg-risk-mid/10 text-risk-mid",
@@ -62,6 +66,11 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
   const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState<Status | null>(null);
   const demo = !!meta.data?.is_mock;
+  const [tab, setTabState] = useState<DetailTab>(lastTab);
+  const setTab = (v: DetailTab) => {
+    lastTab = v;
+    setTabState(v);
+  };
 
   // Keyboard: Esc close, 1/2/3 status, [ ] prev/next
   useEffect(() => {
@@ -70,9 +79,11 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.metaKey || e.ctrlKey) return;
       if (document.querySelector('[role="dialog"]')) return;
       if (e.key === "Escape") onClose();
-      if (e.key === "1") document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="1"]')?.click();
-      if (e.key === "2") document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="2"]')?.click();
-      if (e.key === "3") document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="3"]')?.click();
+      if (e.key === "1" || e.key === "2" || e.key === "3") {
+        lastTab = "decide";
+        setTabState("decide");
+        setTimeout(() => document.querySelector<HTMLButtonElement>(`[aria-keyshortcuts="${e.key}"]`)?.click(), 40);
+      }
       if ((e.key === "]" || e.key === "j" || e.key === "J") && onNext) onNext();
       if ((e.key === "[" || e.key === "k" || e.key === "K") && onPrev) onPrev();
     };
@@ -109,9 +120,20 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
     else openPrintableReport(a, audit.data ?? [], (k) => t(k as I18nKey), { before, after });
   };
 
+  const tabs: { id: DetailTab; label: string; n?: number }[] = [
+    { id: "overview", label: t("dt_overview") },
+    { id: "evidence", label: t("dt_evidence") },
+    { id: "decide", label: t("dt_decide") },
+    { id: "history", label: t("history"), n: audit.data?.length },
+  ];
+  const takeReview = () => {
+    setTab("decide");
+    setTimeout(() => document.querySelector<HTMLButtonElement>('[aria-keyshortcuts="1"]')?.click(), 40);
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="sticky top-0 z-10 flex items-start gap-2 border-b border-line/10 px-4 pb-3 pt-4">
+      <div className="flex items-start gap-2 px-4 pb-2.5 pt-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate font-mono text-[15px] font-semibold">{a.alert_id}</h2>
@@ -132,7 +154,26 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div role="tablist" aria-label={t("dt_tabs")} className="flex gap-1 border-b border-line/10 px-3">
+        {tabs.map((x) => (
+          <button
+            key={x.id}
+            role="tab"
+            aria-selected={tab === x.id}
+            onClick={() => setTab(x.id)}
+            className={cn("relative flex h-9 items-center gap-1.5 px-2.5 text-xs font-medium transition-colors", tab === x.id ? "text-accent" : "text-fg2 hover:text-fg1")}
+          >
+            {x.label}
+            {!!x.n && <span className="tnum rounded bg-bg3 px-1 text-[10px] text-fg2">{x.n}</span>}
+            {tab === x.id && <motion.span layoutId={`dt-${id}`} className="absolute inset-x-1.5 -bottom-px h-[2px] rounded-full bg-accent" />}
+          </button>
+        ))}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" role="tabpanel">
+        {tab === "overview" && (
+          <>
+            <div className="pt-3.5" />
         <div className="px-4 pb-3.5">
           <BeforeAfter a={a} before={before} after={after} demo={demo} />
           <div className="mt-2.5 grid grid-cols-3 divide-x divide-line/10 rounded-xl border bg-bg2/50 py-2">
@@ -164,7 +205,11 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
           <FactorBars a={a} />
         </Section>
 
-        <Section title={t("prov_title")} hint={t("prov_hint")}>
+          </>
+        )}
+        {tab === "evidence" && (
+          <>
+        <Section className="border-t-0" title={t("prov_title")} hint={t("prov_hint")}>
           <Provenance meta={meta.data} />
         </Section>
 
@@ -199,7 +244,11 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
           <BuiltupChart data={ts.data ?? []} start={a.start_month} loading={ts.isLoading} />
         </Section>
 
-        <Section title={t("actions")}>
+          </>
+        )}
+        {tab === "decide" && (
+          <>
+        <Section className="border-t-0" title={t("actions")}>
           <div className="mb-3"><NextStep a={a} /></div>
           <InspectorActions a={a} pending={pending} onPending={setPending} />
           <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -212,11 +261,34 @@ export function DetailPanel({ id, onClose, onPrev, onNext, position }: { id: str
           </div>
         </Section>
 
-        <Section title={t("history")}>
+          </>
+        )}
+        {tab === "history" && (
+          <>
+        <Section className="border-t-0" title={t("history")}>
           <AuditTimeline items={audit.data} loading={audit.isLoading} />
         </Section>
 
+          </>
+        )}
         <p className="border-t border-line/10 px-4 py-3 text-[11px] leading-relaxed text-fg3">{t("disclaimer")}</p>
+      </div>
+
+      {/* always-visible actions */}
+      <div className="flex items-center gap-1.5 border-t border-line/10 bg-bg1/60 px-3 py-2.5 backdrop-blur">
+        {a.status === "new" ? (
+          <Button variant="primary" className="flex-1" onClick={takeReview}>
+            <ClipboardCheck size={15} /> {t("a_review")} <span className="kbd ml-1 border-white/30 bg-white/15 text-white">1</span>
+          </Button>
+        ) : (
+          <Button variant={tab === "decide" ? "default" : "primary"} className="flex-1" onClick={() => setTab("decide")}>
+            <Gavel size={15} /> {t("dt_decide")} · <StatusBadge status={a.status} />
+          </Button>
+        )}
+        <Tip label={t("report_pdf")}><Button size="icon" onClick={pdf} aria-label={t("report_pdf")}><FileText size={15} /></Button></Tip>
+        <Tip label={t("open_maps")}>
+          <Button size="icon" onClick={() => window.open(`https://www.google.com/maps?q=${a.lat},${a.lon}`, "_blank", "noopener")} aria-label={t("open_maps")}><ExternalLink size={15} /></Button>
+        </Tip>
       </div>
     </div>
   );

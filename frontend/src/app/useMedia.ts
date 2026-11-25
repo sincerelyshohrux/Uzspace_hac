@@ -12,10 +12,11 @@ export function useMedia(query: string) {
 }
 
 export const useBreakpoint = () => {
+  const wide = useMedia("(min-width: 1700px)"); // room for the global search box in the top bar
   const xl = useMedia("(min-width: 1280px)");
   const lg = useMedia("(min-width: 1024px)");
   const md = useMedia("(min-width: 768px)");
-  return { xl, lg, md, mobile: !md };
+  return { wide, xl, lg, md, mobile: !md };
 };
 
 export function useOnline() {

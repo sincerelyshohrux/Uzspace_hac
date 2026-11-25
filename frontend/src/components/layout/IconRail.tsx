@@ -1,4 +1,4 @@
-import { BarChart3, HelpCircle, Map as MapIcon, Settings, Target } from "lucide-react";
+import { BarChart3, FileText, HelpCircle, Map as MapIcon, Settings, Target } from "lucide-react";
 import { motion } from "motion/react";
 import type { Tab } from "@/app/state";
 import { Tip } from "@/components/ui/tooltip";
@@ -6,10 +6,11 @@ import { useI18n } from "@/i18n";
 import { cn } from "@/lib/cn";
 import { Logo } from "./Logo";
 
-export const NAV: { tab: Tab; icon: typeof MapIcon; key: "nav_dashboard" | "nav_stats" | "nav_accuracy" }[] = [
+export const NAV: { tab: Tab; icon: typeof MapIcon; key: "nav_dashboard" | "nav_stats" | "nav_accuracy" | "nav_reports" }[] = [
   { tab: "dashboard", icon: MapIcon, key: "nav_dashboard" },
   { tab: "stats", icon: BarChart3, key: "nav_stats" },
   { tab: "accuracy", icon: Target, key: "nav_accuracy" },
+  { tab: "reports", icon: FileText, key: "nav_reports" },
 ];
 
 export function IconRail({ tab, onTab, onSettings, onHelp }: { tab: Tab; onTab: (t: Tab) => void; onSettings: () => void; onHelp: () => void }) {
@@ -39,9 +40,9 @@ export function IconRail({ tab, onTab, onSettings, onHelp }: { tab: Tab; onTab: 
 export function MobileTabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   const { t } = useI18n();
   return (
-    <nav className="z-30 grid grid-cols-3 border-t border-line/10 bg-bg1 pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Main">
+    <nav className="z-30 grid grid-cols-3 border-t border-line/10 bg-bg1 pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Main" style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))` }}>
       {NAV.map(({ tab: k, icon: I, key }) => (
-        <button key={k} onClick={() => onTab(k)} className={cn("flex h-14 flex-col items-center justify-center gap-0.5 text-[11px]", tab === k ? "text-accent" : "text-fg2")} aria-current={tab === k ? "page" : undefined}>
+        <button key={k} onClick={() => onTab(k)} className={cn("flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 truncate px-1 text-[11px]", tab === k ? "text-accent" : "text-fg2")} aria-current={tab === k ? "page" : undefined}>
           <I size={19} />
           {t(key)}
         </button>

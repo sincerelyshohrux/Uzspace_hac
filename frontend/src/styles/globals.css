@@ -120,6 +120,8 @@
 }
 
 /* MapLibre tweaks */
+.ss-map .maplibregl-ctrl-top-left { margin-left: var(--pad-l, 0px); margin-top: var(--pad-t, 0px); transition: margin .3s; }
+.maplibregl-ctrl-scale { background: rgb(var(--glass) / .75) !important; color: rgb(var(--fg-1)) !important; border-color: rgb(var(--fg-1) / .7) !important; font: 600 10px Inter, sans-serif !important; border-radius: 0 0 4px 4px; backdrop-filter: blur(6px); }
 .maplibregl-ctrl-attrib { font-size: 10px !important; background: rgb(var(--glass) / 0.7) !important; color: rgb(var(--fg-2)) !important; }
 .maplibregl-ctrl-attrib a { color: rgb(var(--fg-2)) !important; }
 .maplibregl-popup-content { background: rgb(var(--bg-1)) !important; color: rgb(var(--fg-1)); border-radius: 10px !important; padding: 8px 10px !important; box-shadow: 0 8px 24px rgb(0 0 0 / .35) !important; border: 1px solid rgb(var(--line) / var(--line-a)); }

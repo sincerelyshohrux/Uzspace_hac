@@ -103,6 +103,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
     [["J", "K"], `${t("next")} / ${t("prev")}`],
     [["1", "2", "3"], t("sc_status")],
     [["C"], t("cmp_map")],
+    [["M"], t("measure")],
     [["?"], t("sc_help")],
   ];
   return (

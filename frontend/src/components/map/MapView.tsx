@@ -32,7 +32,35 @@ interface Props {
   /** Swipe between 2023 and 2025 high-resolution imagery over the whole map */
   compare?: boolean;
   compareLabels?: { left: string; right: string; hint: string };
+  /** Distance / area measuring: clicks add points instead of selecting alerts */
+  measure?: boolean;
+  onMeasureClose?: () => void;
+  measureLabels?: { title: string; dist: string; area: string; points: string; clear: string; close: string; hint: string };
 }
+
+type LL = [number, number];
+const R_EARTH = 6_371_008.8;
+const rad = (d: number) => (d * Math.PI) / 180;
+function haversine(a: LL, b: LL) {
+  const dLat = rad(b[1] - a[1]);
+  const dLon = rad(b[0] - a[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLon / 2) ** 2;
+  return 2 * R_EARTH * Math.asin(Math.sqrt(h));
+}
+/** Planar area on a local equirectangular projection: fine for city-scale polygons. */
+function polyArea(pts: LL[]) {
+  if (pts.length < 3) return 0;
+  const lat0 = rad(pts.reduce((s, p) => s + p[1], 0) / pts.length);
+  const xy = pts.map(([lon, lat]) => [rad(lon) * R_EARTH * Math.cos(lat0), rad(lat) * R_EARTH]);
+  let s = 0;
+  xy.forEach(([x1, y1], i) => {
+    const [x2, y2] = xy[(i + 1) % xy.length];
+    s += x1 * y2 - x2 * y1;
+  });
+  return Math.abs(s) / 2;
+}
+const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`);
+const fmtAreaM = (m2: number) => (m2 >= 10_000 ? `${(m2 / 10_000).toFixed(2)} ga` : `${Math.round(m2).toLocaleString("ru-RU")} m²`);
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const riskColorExpr = (prop = "risk_score"): maplibregl.ExpressionSpecification => [
@@ -106,6 +134,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
   const [pos, setPos] = useState(50);
   const dragging = useRef(false);
   const prevHover = useRef<string | null>(null);
+  const [mPts, setMPts] = useState<LL[]>([]);
 
   const alertFC = useMemo<GeoJSON.FeatureCollection>(
     () => ({
@@ -164,7 +193,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       dragRotate: true,
     });
     map.current = m;
-    m.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 90 }), "bottom-left");
+    m.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 100 }), "top-left");
 
     m.on("load", () => {
       m.addSource("districts", { type: "geojson", data: EMPTY });
@@ -284,6 +313,10 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
       const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: "ss-pop" });
 
       m.on("click", (e) => {
+        if (cb.current.measure) {
+          setMPts((v) => [...v, [e.lngLat.lng, e.lngLat.lat]]);
+          return;
+        }
         const hit = m.queryRenderedFeatures(e.point, { layers: [...pickable, "clusters"].filter((l) => m.getLayoutProperty(l, "visibility") !== "none") });
         const c = hit.find((f) => f.layer.id === "clusters");
         if (c && !hit.some((f) => pickable.includes(f.layer.id))) {
@@ -299,6 +332,11 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         if (coordEl.current) coordEl.current.textContent = `${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`;
         const layersOn = [...pickable, "clusters"].filter((l) => m.getLayoutProperty(l, "visibility") !== "none");
         const hit = m.queryRenderedFeatures(e.point, { layers: layersOn });
+        if (cb.current.measure) {
+          m.getCanvas().style.cursor = "crosshair";
+          popup.remove();
+          return;
+        }
         m.getCanvas().style.cursor = hit.length ? "pointer" : "";
         const f = hit.find((x) => pickable.includes(x.layer.id));
         const id = idOf(f);
@@ -317,6 +355,11 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
         popup.remove();
         cb.current.onHover(null);
       });
+
+      m.addSource("measure", { type: "geojson", data: EMPTY });
+      m.addLayer({ id: "measure-fill", type: "fill", source: "measure", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": "#22D3EE", "fill-opacity": 0.12 } });
+      m.addLayer({ id: "measure-line", type: "line", source: "measure", filter: ["==", ["geometry-type"], "LineString"], paint: { "line-color": "#ffffff", "line-width": 2.5, "line-dasharray": [2, 1.5] } });
+      m.addLayer({ id: "measure-pts", type: "circle", source: "measure", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 5, "circle-color": "#22D3EE", "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
 
       setReady(true);
     });
@@ -507,6 +550,35 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
     return () => cancelAnimationFrame(raf);
   }, [ready, p.reducedMotion]);
 
+  // measuring: draw points, path and (3+ points) the closed area
+  useEffect(() => {
+    if (!p.measure) setMPts([]);
+    const m = map.current;
+    if (m && ready && !p.measure) m.getCanvas().style.cursor = "";
+  }, [p.measure, ready]);
+  useEffect(() => {
+    const src = map.current?.getSource("measure") as GeoJSONSource | undefined;
+    if (!ready || !src) return;
+    const f: GeoJSON.Feature[] = mPts.map((c) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: c } }));
+    if (mPts.length > 1) f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: mPts } });
+    if (mPts.length > 2) f.push({ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[...mPts, mPts[0]]] } });
+    src.setData({ type: "FeatureCollection", features: f });
+  }, [mPts, ready]);
+  useEffect(() => {
+    if (!p.measure) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopImmediatePropagation();
+        cb.current.onMeasureClose?.();
+      }
+      if (e.key === "Backspace" && (e.target as HTMLElement)?.tagName !== "INPUT") setMPts((v) => v.slice(0, -1));
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [p.measure]);
+  const dist = mPts.reduce((s, c, i) => (i ? s + haversine(mPts[i - 1], c) : 0), 0);
+  const ML = p.measureLabels;
+
   const drag = (e: React.PointerEvent) => {
     if (!dragging.current || !wrap.current) return;
     const r = wrap.current.getBoundingClientRect();
@@ -515,7 +587,11 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
   const L = p.compareLabels;
 
   return (
-    <div ref={wrap} className="absolute inset-0">
+    <div
+      ref={wrap}
+      className="ss-map absolute inset-0"
+      style={{ "--pad-l": `${p.padding.left - 8}px`, "--pad-t": `${p.padding.top + 44}px` } as React.CSSProperties}
+    >
       <div ref={el} className="h-full w-full" role="region" aria-label="Map" />
       {p.compare && (
         <>
@@ -554,7 +630,37 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(p, ref) {
           </div>
         </>
       )}
-      <div ref={coordEl} className="pointer-events-none absolute bottom-2 left-[110px] z-10 hidden rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] text-white/85 backdrop-blur md:block" aria-hidden />
+      <div
+        ref={coordEl}
+        className="pointer-events-none absolute z-10 hidden rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] text-white/85 backdrop-blur md:block"
+        style={{ left: p.padding.left + 2, top: p.padding.top + 76 }}
+        aria-hidden
+      />
+      {p.measure && ML && (
+        <div
+          className="glass absolute z-20 w-[230px] rounded-xl p-3 text-xs"
+          style={{ left: Math.max(8, p.padding.left + 2), top: p.padding.top + 104 }}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="hud-label">{ML.title}</span>
+            <span className="tnum text-2xs text-fg3">{mPts.length} {ML.points}</span>
+          </div>
+          {mPts.length < 2 ? (
+            <p className="leading-relaxed text-fg2">{ML.hint}</p>
+          ) : (
+            <div className="space-y-0.5">
+              <div className="flex justify-between"><span className="text-fg2">{ML.dist}</span><b className="tnum text-sm text-fg1">{fmtDist(dist)}</b></div>
+              {mPts.length > 2 && <div className="flex justify-between"><span className="text-fg2">{ML.area}</span><b className="tnum text-sm text-accent">{fmtAreaM(polyArea(mPts))}</b></div>}
+            </div>
+          )}
+          <div className="mt-2 flex gap-1.5">
+            <button onClick={() => setMPts([])} disabled={!mPts.length} className="h-7 flex-1 rounded-md border bg-bg2 text-2xs font-medium hover:bg-bg3 disabled:opacity-50">{ML.clear}</button>
+            <button onClick={() => p.onMeasureClose?.()} className="h-7 flex-1 rounded-md border bg-bg2 text-2xs font-medium hover:bg-bg3">{ML.close} <span className="text-fg3">Esc</span></button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

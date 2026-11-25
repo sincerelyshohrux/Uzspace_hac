@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .api import alerts, export, meta, stats
+from .api import alerts, export, meta, reports, stats
 from .deps import get_store
 
 
@@ -24,7 +24,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="SiteSentinel API", version="1.0.0", lifespan=lifespan,
                   description="Satellite-based construction monitoring: alerts, inspector workflow, statistics.")
     app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
-    for r in (meta.router, alerts.router, stats.router, export.router):
+    for r in (meta.router, alerts.router, stats.router, export.router, reports.router):
         app.include_router(r)
     # Only image chips are public; app.db and other files in DATA_DIR are not served.
     chips = config.DATA_DIR / "chips"

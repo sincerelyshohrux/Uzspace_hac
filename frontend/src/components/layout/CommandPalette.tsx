@@ -1,6 +1,6 @@
 // Cmd/Ctrl+K: jump to an alert or district, switch page, toggle map modes, theme and language.
 import * as D from "@radix-ui/react-dialog";
-import { BarChart3, Box, Columns2, CornerDownLeft, Flame, Keyboard, Languages, Map as MapIcon, MapPinned, Moon, Search, Settings, Sun, Target, type LucideIcon } from "lucide-react";
+import { BarChart3, Box, FileText, Columns2, CornerDownLeft, Flame, Keyboard, Languages, Map as MapIcon, MapPinned, Moon, Search, Settings, Sun, Target, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAlerts, useMeta } from "@/api/hooks";
 import { EMPTY_FILTERS } from "@/api/types";
@@ -51,6 +51,7 @@ export function CommandPalette({ open, onOpenChange, onDistrict, onSettings, onH
       { id: "go-d", group: "actions", label: t("nav_dashboard"), icon: MapIcon, run: () => set({ tab: "dashboard" }) },
       { id: "go-s", group: "actions", label: t("nav_stats"), icon: BarChart3, run: () => set({ tab: "stats" }) },
       { id: "go-a", group: "actions", label: t("nav_accuracy"), icon: Target, run: () => set({ tab: "accuracy" }) },
+      { id: "go-r", group: "actions", label: t("nav_reports"), icon: FileText, run: () => set({ tab: "reports" }) },
       ...(top ? [{ id: "top", group: "actions" as const, label: t("start_top"), sub: top.alert_id, icon: Flame, run: () => set({ tab: "dashboard", alert: top.alert_id }) }] : []),
       { id: "cmp", group: "actions", label: `${t("cmp_map")} · ${s.compare ? t("off") : t("on")}`, icon: Columns2, keys: "C", run: () => set({ tab: "dashboard", compare: !s.compare }) },
       { id: "3d", group: "actions", label: `3D · ${s.view3d ? t("off") : t("on")}`, icon: Box, run: () => set({ tab: "dashboard", view3d: !s.view3d }) },

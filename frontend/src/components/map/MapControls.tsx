@@ -1,4 +1,4 @@
-import { Box, Columns2, Crosshair, Layers, Maximize2, Minimize2, Minus, Plus, ScanSearch } from "lucide-react";
+import { Box, Columns2, Crosshair, Layers, Maximize2, Minimize2, Minus, Plus, Ruler, ScanSearch } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { Basemap, LayerPrefs } from "@/app/state";
 
@@ -15,9 +15,10 @@ function Group({ children, className }: { children: ReactNode; className?: strin
 }
 const ctl = "grid h-9 w-9 place-items-center text-fg2 transition-colors hover:bg-bg3/70 hover:text-fg1";
 
-export function MapControls({ map, basemap, onBasemap, view3d, on3d, layers, onLayers, compare, onCompare, className }: {
+export function MapControls({ map, basemap, onBasemap, view3d, on3d, layers, onLayers, compare, onCompare, measure, onMeasure, className }: {
   map: React.RefObject<MapHandle>; basemap: Basemap; onBasemap: (b: Basemap) => void; view3d: boolean; on3d: (v: boolean) => void;
-  layers: LayerPrefs; onLayers: (l: LayerPrefs) => void; compare: boolean; onCompare: (v: boolean) => void; className?: string;
+  layers: LayerPrefs; onLayers: (l: LayerPrefs) => void; compare: boolean; onCompare: (v: boolean) => void;
+  measure?: boolean; onMeasure?: (v: boolean) => void; className?: string;
 }) {
   const { t } = useI18n();
   const [fs, setFs] = useState(false);
@@ -84,6 +85,14 @@ export function MapControls({ map, basemap, onBasemap, view3d, on3d, layers, onL
           <Tip label={t("zoom_out")} side="left"><button className={ctl} onClick={() => map.current?.zoomOut()} aria-label={t("zoom_out")}><Minus size={16} /></button></Tip>
         </Group>
         <Group>
+          {onMeasure && (
+            <>
+              <Tip label={t("measure")} side="left" kbd="M">
+                <button className={cn(ctl, measure && "bg-accent/20 text-accent")} onClick={() => onMeasure(!measure)} aria-pressed={!!measure} aria-label={t("measure")}><Ruler size={15} /></button>
+              </Tip>
+              <div className="mx-2 h-px bg-line/20" />
+            </>
+          )}
           <Tip label={t("recenter")} side="left"><button className={ctl} onClick={() => map.current?.recenter()} aria-label={t("recenter")}><Crosshair size={16} /></button></Tip>
           <div className="mx-2 h-px bg-line/20" />
           <Tip label="Fit alerts" side="left"><button className={ctl} onClick={() => map.current?.fitAlerts()} aria-label="Fit alerts"><ScanSearch size={16} /></button></Tip>

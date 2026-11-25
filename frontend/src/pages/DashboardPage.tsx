@@ -37,6 +37,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
   const [layers, setLayersState] = useState<LayerPrefs>(loadLayers);
   const [queueOpen, setQueueOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // user-collapsed alert list (desktop)
+  const [measure, setMeasure] = useState(false);
   const [sheet, setSheet] = useState<Snap>(() => (s.alert ? "half" : "peek")); // mobile sheet
   const setLayers = (l: LayerPrefs) => {
     setLayersState(l);
@@ -87,9 +88,11 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
     [select],
   );
 
-  // Enter on the focused list opens the first alert when nothing is selected
+  // Enter on the focused list opens the first alert when nothing is selected; M toggles measuring
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if ((e.key === "m" || e.key === "M") && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA" && !document.querySelector('[role="dialog"]')) setMeasure((v) => !v);
       if (e.key === "Enter" && !s.alert && document.activeElement?.getAttribute("role") === "listbox" && items[0]) select(items[0].alert_id);
     };
     window.addEventListener("keydown", onKey);
@@ -125,7 +128,7 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
       hovered={hovered}
       onSelect={onSelect}
       onHover={setHovered}
-      searchRef={bp.xl ? undefined : searchRef}
+      searchRef={bp.wide ? undefined : searchRef}
       topId={topId}
       className="h-full"
     />
@@ -152,10 +155,13 @@ export function DashboardPage({ searchRef }: { searchRef: React.RefObject<HTMLIn
       activeDistrict={s.filters.district}
       compare={s.compare}
       compareLabels={{ left: `2023 · ${WAYBACK.t1.label}`, right: `2025 · ${WAYBACK.t2.label}`, hint: t("cmp_hint") }}
+      measure={measure}
+      onMeasureClose={() => setMeasure(false)}
+      measureLabels={{ title: t("measure"), dist: t("m_dist"), area: t("m_area"), points: t("m_points"), clear: t("m_clear"), close: t("close"), hint: t("m_hint") }}
     />
   );
   const controls = (
-    <MapControls map={mapRef} basemap={s.basemap} onBasemap={(b) => set({ basemap: b })} view3d={s.view3d} on3d={(v) => set({ view3d: v })} layers={layers} onLayers={setLayers} compare={s.compare} onCompare={(v) => set({ compare: v })} />
+    <MapControls map={mapRef} basemap={s.basemap} onBasemap={(b) => set({ basemap: b })} view3d={s.view3d} on3d={(v) => set({ view3d: v })} layers={layers} onLayers={setLayers} compare={s.compare} onCompare={(v) => set({ compare: v })} measure={measure} onMeasure={setMeasure} />
   );
 
   // Mobile: full-screen map with a draggable sheet (list, or the selected alert)

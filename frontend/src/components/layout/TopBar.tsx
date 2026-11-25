@@ -91,11 +91,11 @@ export function TopBar({ tab, onTab, mode, apiOnline, onAlert, onDistrict, searc
         ))}
       </nav>
 
-      <div className="hidden min-w-0 flex-1 justify-center xl:flex">
+      <div className="hidden min-w-0 flex-1 justify-center min-[1700px]:flex">
         <GlobalSearch onAlert={onAlert} onDistrict={onDistrict} inputRef={searchRef} />
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1.5 xl:ml-0">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 min-[1700px]:ml-0">
         <Clock />
         {demoRows > 0 && (
           <Tip label={t("demo_act_tip", { n: demoRows })}>
@@ -105,7 +105,7 @@ export function TopBar({ tab, onTab, mode, apiOnline, onAlert, onDistrict, searc
           </Tip>
         )}
         <Tip label={t("cmdk")} kbd="⌘K">
-          <button onClick={onCommand} className={cn(iconBtn, "hidden lg:grid xl:hidden")} aria-label={t("cmdk")}><Command size={15} /></button>
+          <button onClick={onCommand} className={cn(iconBtn, "hidden lg:grid min-[1700px]:hidden")} aria-label={t("cmdk")}><Command size={15} /></button>
         </Tip>
         <Tip label={label}>
           <span className="hidden h-9 items-center gap-1.5 rounded-xl border bg-bg2/70 px-2.5 text-[11px] font-semibold tracking-wider text-fg2 sm:flex" role="status" aria-label={label}>

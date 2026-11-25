@@ -11,6 +11,7 @@ import { MobileTabBar } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
 import { AccuracyPage } from "@/pages/AccuracyPage";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { ReportsPage } from "@/pages/ReportsPage";
 import { StatsPage } from "@/pages/StatsPage";
 
 export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnline: boolean }) {
@@ -76,7 +77,7 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
           apiOnline={apiOnline}
           onAlert={(id) => set({ tab: "dashboard", alert: id })}
           onDistrict={goDistrict}
-          searchRef={bp.xl ? searchRef : { current: null }}
+          searchRef={bp.wide ? searchRef : { current: null }}
         />
         {mode === "api" && !apiOnline && <ApiBanner onRetry={async () => setApiOnline(await apiReachable())} />}
         <main className="flex min-h-0 flex-1 flex-col">
@@ -84,6 +85,7 @@ export function App({ mode, apiOnline: initialOnline }: { mode: DataMode; apiOnl
             {s.tab === "dashboard" && <DashboardPage key="d" searchRef={searchRef} />}
             {s.tab === "stats" && <StatsPage key="s" onOpen={openFiltered} />}
             {s.tab === "accuracy" && <AccuracyPage key="a" />}
+            {s.tab === "reports" && <ReportsPage key="r" onOpen={openFiltered} />}
           </AnimatePresence>
         </main>
         <MobileTabBar tab={s.tab} onTab={(tab) => set({ tab })} />

@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { EMPTY_FILTERS, type Filters } from "@/api/types";
 
-export type Tab = "dashboard" | "stats" | "accuracy";
+export type Tab = "dashboard" | "stats" | "accuracy" | "reports";
 export type QueueTab = "all" | "critical" | "review" | "mine";
 export type SortKey = "risk" | "area" | "new" | "status";
 export type Basemap = "satellite" | "streets" | "dark";
@@ -24,7 +24,7 @@ function fromUrl(): AppState {
   const p = new URLSearchParams(location.search);
   const tab = p.get("tab");
   return {
-    tab: tab === "stats" || tab === "accuracy" ? tab : "dashboard",
+    tab: tab === "stats" || tab === "accuracy" || tab === "reports" ? tab : "dashboard",
     alert: p.get("alert"),
     filters: {
       district: p.get("district") ?? "",

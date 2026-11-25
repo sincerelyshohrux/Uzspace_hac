@@ -71,4 +71,7 @@ export const chipUrl = (path: string | null): string | null =>
 
 /** PDF report URL in API mode; null in demo mode (a printable HTML report is used instead). */
 export const reportUrl = (id: string) => (demo() ? null : `/api/alerts/${encodeURIComponent(id)}/report.pdf`);
+/** Area report (whole city when district is null); API mode only. */
+export const summaryReportUrl = (district: string | null) =>
+  demo() ? null : `/api/reports/summary.pdf${district ? `?district=${encodeURIComponent(district)}` : ""}`;
 export const exportUrl = (f: Filters) => (demo() ? null : `/api/export.csv?${filtersToQuery(f)}`);
