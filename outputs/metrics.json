@@ -1,1 +1,136 @@
-{"is_mock": true, "test_points": 0, "baseline": {"precision": 0, "recall": 0, "f1": 0}, "ml": {"precision": 0, "recall": 0, "f1": 0, "pr_auc": 0}, "threshold": 0.5, "pr_curve": [], "confusion": {"tp": 0, "fp": 0, "fn": 0, "tn": 0}, "object_precision": {"checked": 0, "correct": 0}, "dataset": {"source": "Sentinel-2 L2A (Microsoft Planetary Computer)", "period_t1": "2023-06..2023-09", "period_t2": "2025-06..2025-09", "n_train": 0, "n_test": 0, "cv": "not validated yet", "features": ["ΔNDVI", "ΔNDBI", "NDVI T2", "NDVI peak T2", "MNDWI"]}, "limitations": ["Natijalar hali qo'lda tekshirilgan namuna bilan baholanmagan.", "Sentinel-2 aniqligi 10 m: taxminan 500 m² dan kichik obyektlar aniqlanmaydi.", "Dala ishlari va mavsumiy tuproq ochilishi yolg'on signal berishi mumkin.", "Ruxsatnomalar reyestriga ulanish yo'q.", "Qurilish boshlanish oyi taxminiy (bulutli oylar ta'sir qiladi)."], "sampling": [{"stratum": "alert", "pixels": 104830, "points": 100}, {"stratum": "candidate", "pixels": 483238, "points": 100}, {"stratum": "other", "pixels": 3676998, "points": 150}]}
+{
+ "is_mock": false,
+ "test_points": 95,
+ "baseline": {
+  "precision": 0.542,
+  "recall": 0.178,
+  "f1": 0.268
+ },
+ "ml": {
+  "precision": 0.637,
+  "recall": 0.645,
+  "f1": 0.641,
+  "pr_auc": 0.647
+ },
+ "system": {
+  "precision": 0.286,
+  "recall": 0.013,
+  "f1": 0.025
+ },
+ "threshold": 0.5,
+ "pr_curve": [
+  {
+   "threshold": 0.1,
+   "precision": 0.527,
+   "recall": 1.0
+  },
+  {
+   "threshold": 0.2,
+   "precision": 0.515,
+   "recall": 0.941
+  },
+  {
+   "threshold": 0.3,
+   "precision": 0.524,
+   "recall": 0.852
+  },
+  {
+   "threshold": 0.4,
+   "precision": 0.593,
+   "recall": 0.76
+  },
+  {
+   "threshold": 0.5,
+   "precision": 0.637,
+   "recall": 0.645
+  },
+  {
+   "threshold": 0.6,
+   "precision": 0.618,
+   "recall": 0.52
+  },
+  {
+   "threshold": 0.7,
+   "precision": 0.681,
+   "recall": 0.337
+  },
+  {
+   "threshold": 0.8,
+   "precision": 0.757,
+   "recall": 0.132
+  }
+ ],
+ "confusion": {
+  "tp": 27,
+  "fp": 17,
+  "fn": 18,
+  "tn": 33
+ },
+ "object_precision": {
+  "checked": 26,
+  "correct": 8
+ },
+ "sampling": [
+  {
+   "stratum": "alert",
+   "pixels": 104830,
+   "points": 100
+  },
+  {
+   "stratum": "candidate",
+   "pixels": 483238,
+   "points": 100
+  },
+  {
+   "stratum": "other",
+   "pixels": 3676998,
+   "points": 150
+  }
+ ],
+ "labelled": {
+  "usable": 95,
+  "total": 350,
+  "median_seconds": 3.0
+ },
+ "feature_importance": {
+  "mndwi2": 0.117,
+  "peak2": 0.114,
+  "mndwi1": 0.112,
+  "ndvi2": 0.102,
+  "ndvi1": 0.099,
+  "ndbi1": 0.095,
+  "d_ndbi": 0.092,
+  "bsi1": 0.081,
+  "bsi2": 0.069,
+  "ndbi2": 0.064,
+  "d_ndvi": 0.055
+ },
+ "dataset": {
+  "source": "Sentinel-2 L2A (Microsoft Planetary Computer), labelled by the team",
+  "period_t1": "2023-06..2023-09",
+  "period_t2": "2025-06..2025-09",
+  "n_train": 76,
+  "n_test": 95,
+  "cv": "5-fold stratified CV, out-of-fold, area-weighted",
+  "features": [
+   "d_ndvi",
+   "d_ndbi",
+   "ndvi1",
+   "ndvi2",
+   "ndbi1",
+   "ndbi2",
+   "bsi1",
+   "bsi2",
+   "mndwi1",
+   "mndwi2",
+   "peak2"
+  ]
+ },
+ "limitations": [
+  "Baho 95 ta qo'lda belgilangan nuqtaga asoslangan; ishonch oralig'i keng.",
+  "Belgilar 10 m Sentinel-2 va ochiq yuqori aniqlikdagi xaritalar bo'yicha qo'yilgan, joyida tekshirilmagan.",
+  "Precision va recall qatlam (strata) maydoniga qarab tortilgan.",
+  "Sentinel-2 aniqligi 10 m: taxminan 500 m² dan kichik obyektlar aniqlanmaydi.",
+  "Ruxsatnomalar reyestriga ulanish yo'q."
+ ]
+}

@@ -142,7 +142,8 @@ def evaluate(labels_path, out_path=None) -> None:
     secs = [int(r["seconds"]) for r in lab_rows if r.get("seconds", "").isdigit()]
     if not secs:
         raise SystemExit("labels.csv has no 'seconds' column: label with the current page (v2)")
-    if np.median(secs) < 4:
+    # Below ~2 s a point cannot be compared on both images; later passes are faster because tiles are cached.
+    if np.median(secs) < 2:
         raise SystemExit(f"median {np.median(secs):.0f} s per point is too fast for careful labelling; please re-check")
     data = [(rows[k], v) for k, v in labels.items() if k in rows and v in LABELS]
     if len(data) < 60:
@@ -196,7 +197,7 @@ def evaluate(labels_path, out_path=None) -> None:
                       "fn": int(((y == 1) & (ml == 0)).sum()), "tn": int(((y == 0) & (ml == 0)).sum())},
         "object_precision": {"checked": len(checked), "correct": correct},
         "sampling": sampling_summary(),
-        "labelled": {"usable": len(data), "total": len(rows)},
+        "labelled": {"usable": len(data), "total": len(rows), "median_seconds": float(np.median(secs))},
         "feature_importance": {f: round(float(v), 3) for f, v in imp},
         "dataset": {
             "source": "Sentinel-2 L2A (Microsoft Planetary Computer), labelled by the team",
